@@ -39,23 +39,21 @@
   </video>
   <br />
   <p>
-    This isn't actually the data provided though. Even though the video is quite
-    low resolution, only 256x128 the full 5000 minutes would be very large so to
+    This isn't actually the data provided. Even though the video is quite low
+    resolution, only 256x128 the full 5000 minutes would be very large so to
     make the data easier to handle it has already been heavily compressed using
     a
     <a href="https://arxiv.org/pdf/1711.00937">VQ-VAE</a>.
   </p>
-  <img
-    src="attachment\image2274.png"
-    class="img_responsive"
-    width="700"
-  />
+  <img src="attachment\image2274.png" class="img_responsive" width="700" />
   <p>
     Using the VQ-VAE network the video is compressed from raw 256x128 frames to
-    10 bit 16x8 frames. The data being 10 bit just means is that the values can
-    take on any value from 0 to 1023. Note that this is lossy compression which
-    means information is lost when compressing. Below is the same clip as before
-    but now compressed with the VQ-VAE.
+    10 bit 16x8 frames. This intermediate frame is called the latent
+    representation and it being 10 bit just means its values can take on any
+    integer from 0 to 1023. If we only store the latent representation and
+    decoder we can recover the original image, however note that this is lossy
+    compression which means information is lost when compressing. Below is the
+    same clip as before but now compressed with the VQ-VAE.
   </p>
   <br />
   <video width="700" controls class="img_responsive">
@@ -68,23 +66,23 @@
   <br />
   <p>
     Since each frame is compressed independently there is temporal artifacting
-    between frames but its a pretty good approximation and captures the general
-    features of the image. We can also view the tokens directly the image below
-    is the average of all the frames. In the image there is a visible horizion,
-    road lines and most the values are from 500 to 525 even though the tokens
-    can take on values in the full range of 0 to 1023.
+    between frames but its captures the general features of the image. Something
+    cool is that we can find features in the latent representation directly.
+    Below is the average of all the latent frames and there is a visible horizon
+    and road lines even though it is extremely low resoluton. It is also
+    interesting that all of the values are in range of 500 to 525.
   </p>
   <img src="attachment\image.png" class="img_responsive" />
   <p>
-    Before compression the data is about ~915 mb and the
-    first place submission has a compression ratio of 3.4 so they were able to
-    get it down to about 270 mb.
+    Before compression the data is about ~915 mb and the first place submission
+    has a compression ratio of 3.4 so they were able to get it down to about 270
+    mb.
   </p>
   <h2>arithmetic coding</h2>
   <p>
     Arithmetic coding is a popular lossless compression technique. Lossless here
     just means that no information is lost and is different from lossy
-    compression like a jpeg that loses quality when compressed. To begin,
+    compression like jpeg that loses quality when compressed. To begin,
     arithmetic coding first needs a model that assigns a probability to each
     character of how likely it is to appear. An example model is shown below.
   </p>
@@ -112,15 +110,17 @@
     We also need a message to compress and in this case that will simply be
     "bac". To begin encoding the message we split the range from 0 to 1 into
     three different parts corresponding to our characters, each intervals width
-    is dependent on its probability. 
-    
-    Since the first letter of our message is
-    "b", we subdivide the region from 0.2 to 0.5 into the same three parts.
-    Since the second letter is "a", we then further it into the three parts and
-    so on until the message has been fully encoded. This is the final range that
-    our message sits inside of. In this case it is from 0.23 to 0.26 because for
-    every single point inside the interval the first three letters of the
-    message are "bac".
+    is dependent on its probability. Since the model assigns the highest
+    probability to c it has the largest interval and a and b has smaller
+    intervals. The first letter of the message is "b" so the message has to be
+    contained within the interval from 0.2 to 0.5. Since we know that the
+    message has to be in that interval we can again subdivide it according to
+    our characters and their probabilities. The second letter is "a" so the
+    message must be contained within the "a" interval and so we then further it
+    into the three parts. We continue like this until the message has been fully
+    encoded. The final interval that our message falls in is from 0.23 to 0.26
+    because for every single point inside the interval the first three letters
+    of the message are "bac".
   </p>
   <img src="attachment\encode 2.png" class="img_responsive" , width="700" />
   <p>
@@ -129,9 +129,9 @@
     are going to split the interval from 0 to 1 in half, if the interval of our
     message falls below 0.5 we record a 0 and above a 1. For our example since
     the interval 0.23 to 0.26 is below 0.5 we record a 0 and split the range
-    from 0 to 0.5 in half. We continually do this until the interval is entirely
-    contained within the interval of 0.23 to 0.26. For the message "bac" the
-    encoding is 001111.
+    from 0 to 0.5 in half. We continually do this until the binary sequence is
+    entirely contained within the interval of 0.23 to 0.26. For the message
+    "bac" the encoding is 001111.
   </p>
 
   <img src="attachment\binary.png" class="img_responsive" , width="700" />
@@ -149,24 +149,53 @@
     because it requires infinite precision. Computers obviously do not have
     infinite precision and if you were try and implement this in code it would
     fail for longer sequences because the intervals would become so tiny that
-    the computer would not be able to represent them properly. This blogpost
-    explains the finite precision version of the algorithm that works for longer
-    sequences and that I use for my implementation.
+    the computer would not be able to represent them properly.
+    <a
+      href="https://web.archive.org/web/20241123060529/https://marknelson.us/posts/2014/10/19/data-compression-with-arithmetic-coding.html"
+      >This</a
+    >
+    excellent blogpost explains the finite precision version of the algorithm
+    that works for longer sequences and that I used for my implementation.
   </p>
   <h2>the model</h2>
   <p>
-    To begin, included in the repository with the driving data is a gpt-2 medium
-    sized model (~350 million parameters) that is trained on 3 million minutes
-    of driving data to predict the next token.
-    <a href="https://arxiv.org/pdf/2309.10668">This</a> paper proposed using
-    language models alongside arithmetic coding to compress data. We can do the
-    same and use the GPT model to compress the driving data. One cool fact is
-    that we can actually use the cross entropy loss of the model to estimate how
-    well it will compress. The GPT model in the repository is around ~350
-    million parameters and gets a cross entropy loss of around 2. Pytorch uses
-    an e base for log but if we convert to log 2 we get an average of 2.89 bits
-    per token. This would give a theoretical compression ratio of 3.47 which is
-    actually better than first place. The problem of course is that the model
-    itself takes up 614 mb.
+    As previously mentioned for arithmetic coding to work you need a model to
+    provide probabilities. Conveniently enough, included in the repository with
+    the driving data is a gpt-2 medium sized model (~350 million parameters)
+    that is trained on 3 million minutes of driving data to predict the next
+    token. Specifically what they did was flatten the 10 bit 16x8 latent
+    representation into 128 "tokens" and the model takes in a fixed content
+    length of the n past tokens and produces a probability distribution across
+    all of the 1024 possible values of the next token. So we can actually just
+    plug this model directly into arithmetic coding and use its probabilities to
+    compress the data, and this actually isn't a novel idea.
+    <a href="https://arxiv.org/pdf/2309.10668">This</a> paper proposed exactly
+    this method but with language models and text compression and was actually
+    where I got this idea from. So this works and is great but there is actually
+    two major problems. The first is that the model itself takes up 614 mb so
+    even if the model compressed the data into 0 bits we would still have to
+    store the model and it would be twice the size as the first place
+    submission. The second and related problem is that because the model is so
+    large it is extremely slow. On a good gpu it runs at 0.3 seconds per frame
+    which doesn't actually sound that bad. But then you remember that there are
+    5000 minutes and 1200 frames per minute it comes out to 21 days which is
+    obviously not ideal.
+  </p>
+  <h2>architecture improvements</h2>
+  <p>
+    So at this point its pretty clear we are going to have to train our own
+    model. This model will almost certainly be worse than the gpt-2 medium sized
+    model but if there is any hope of achieveing a good compression ratio and
+    fast speeds it needs to be done.
+  </p>
+  <p>
+    An interesting observation is that the model is predicting one token at a
+    time. We can actually make an independence assumption that tokens within a
+    single frame won't really help predicting other tokens within that same
+    frame. What is really important is what that token was in previous frames.
+    In this way we can change the transformer to produce probabilities for every
+    single token in a frame at a single time. Predicting on a frame level
+    instead of token level. This is actually a really great idea because it
+    should actually make our model 128 times faster for essentially free.
   </p>
 </body>
