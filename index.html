@@ -40,7 +40,7 @@
   <br />
   <p>
     This isn't actually the data provided. Even though the video is quite low
-    resolution, only 256x128 the full 5000 minutes would be very large so to
+    resolution, only 256x128 the full 5,000 minutes would be very large so to
     make the data easier to handle it has already been heavily compressed using
     a
     <a href="https://arxiv.org/pdf/1711.00937">VQ-VAE</a>.
@@ -147,9 +147,9 @@
   <p>
     What was described above is called infinite precision arithmetic coding
     because it requires infinite precision. Computers obviously do not have
-    infinite precision and if you were try and implement this in code it would
-    fail for longer sequences because the intervals would become so tiny that
-    the computer would not be able to represent them properly.
+    infinite precision and if you were try and implement this it would fail for
+    longer sequences because the intervals would become so tiny that the
+    computer would not be able to represent them properly.
     <a
       href="https://web.archive.org/web/20241123060529/https://marknelson.us/posts/2014/10/19/data-compression-with-arithmetic-coding.html"
       >This</a
@@ -160,34 +160,71 @@
   <h2>the model</h2>
   <p>
     As previously mentioned for arithmetic coding to work you need a model to
-    provide probabilities. Conveniently enough, included in the repository with
-    the driving data is a gpt-2 medium sized model (~350 million parameters)
-    that is trained on 3 million minutes of driving data to predict the next
-    token. Specifically what they did was flatten the 10 bit 16x8 latent
-    representation into 128 "tokens" and the model takes in a fixed content
-    length of the n past tokens and produces a probability distribution across
-    all of the 1024 possible values of the next token. So we can actually just
-    plug this model directly into arithmetic coding and use its probabilities to
-    compress the data, and this actually isn't a novel idea.
-    <a href="https://arxiv.org/pdf/2309.10668">This</a> paper proposed exactly
-    this method but with language models and text compression and was actually
-    where I got this idea from. So this works and is great but there is actually
-    two major problems. The first is that the model itself takes up 614 mb so
-    even if the model compressed the data into 0 bits we would still have to
-    store the model and it would be twice the size as the first place
-    submission. The second and related problem is that because the model is so
-    large it is extremely slow. On a good gpu it runs at 0.3 seconds per frame
-    which doesn't actually sound that bad. But then you remember that there are
-    5000 minutes and 1200 frames per minute it comes out to 21 days which is
-    obviously not ideal.
+    provide probabilities for each symbol. Conveniently enough, included in the
+    repository with the driving data is a gpt-2 medium sized model (~350 million
+    parameters) that is trained on 3 million minutes of driving data to predict
+    the next token. Specifically what they did was flatten the 10 bit 16x8
+    latent representation into 128 "tokens" and the model takes in a fixed
+    content length of the past n tokens and produces a probability distribution
+    across all of the 1024 possible values of the next token. The full 5,000
+    minutes of driving data is 768 million tokens (5,000 minutes * 1,200 frames
+    per minute * 128 tokens per frame).
   </p>
-  <h2>architecture improvements</h2>
+  <p>
+    So we can actually just plug this model directly into arithmetic coding and
+    use its probabilities to compress the data, and it works, but there are two
+    major problems. The first is that the model itself takes up 614 mb so even
+    just storing the model would take twice the space of the first place
+    submission. The second and related problem is that because the model is so
+    large it is extremely slow. On a good gpu it runs at about 400 tokens per
+    second which doesn't sound that bad, but then you remember that there are
+    768 million tokens so it would take 21 days.
+  </p>
+  <p>
+    As an aside this isn't actually a novel idea, and
+    <a href="https://arxiv.org/pdf/2309.10668">this</a> paper proposed exactly
+    this method but with language models and text compression instead of driving
+    data.
+  </p>
+  <h2>baseline model</h2>
   <p>
     So at this point its pretty clear we are going to have to train our own
     model. This model will almost certainly be worse than the gpt-2 medium sized
     model but if there is any hope of achieveing a good compression ratio and
     fast speeds it needs to be done.
   </p>
+  <p>
+    Alongside the 5,000 minutes of driving data we need to compress there is
+    another 95,000 minutes of driving data we can use for training. The
+    first baseline model has around 3.7 million parameters and is trained on 1
+    epoch of the driving data. Most of the training details are rather
+    unimportant but I will say shuffling the data and using Muon instead of
+    AdamW were the two largest performance jumps. Below is the loss
+    graph and when it finishes training the loss is about 2.5.
+  </p>
+
+  <img
+    src="attachment/W&B Chart 2_15_2025, 1_49_38 PM.png"
+    class="img_responsive"
+    ,
+    width="700"
+  />
+
+  <p>
+    The cool thing about cross entropy is that we can actually use the loss
+    to estimate how well it will compress. The cross entropy implementation
+    in pytorch uses natural log but if we convert it to base 2 we get that the model
+    needs about 3.6 bits per symbol. Since each symbol normally takes 10 bits 
+    we can do 10/3.6 to get a compression ratio of about 2.78. We also need to 
+    store the model which is about 7 mb so the actual compression ratio will be 
+    around 2.7.
+  </p>
+
+  <p>
+    So it seems the size of the model is no longer an issue however it is still 
+    painfully slow.
+  </p>
+  <h2>architecture improvements</h2>
   <p>
     An interesting observation is that comma's model is only predicting one
     token at a time. We can actually make an independence assumption that tokens
@@ -198,6 +235,7 @@
     token level. This is actually a really great idea because it should actually
     make our model 128 times faster for essentially free.
   </p>
+
   <p>
     Just to digress for a second about how comma's model actually works. Each
     frame is 128 tokens however if you were to just feed the model a stream of
@@ -221,6 +259,7 @@
   />
 
   <p>
-    For reference these models are the same architecture as the gpt-2 model but now about 3.7 million parameters. 
+    For reference these models are the same architecture as the gpt-2 model but
+    now about 3.7 million parameters.
   </p>
 </body>
