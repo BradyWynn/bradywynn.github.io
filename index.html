@@ -189,13 +189,38 @@
     fast speeds it needs to be done.
   </p>
   <p>
-    An interesting observation is that the model is predicting one token at a
-    time. We can actually make an independence assumption that tokens within a
-    single frame won't really help predicting other tokens within that same
-    frame. What is really important is what that token was in previous frames.
-    In this way we can change the transformer to produce probabilities for every
-    single token in a frame at a single time. Predicting on a frame level
-    instead of token level. This is actually a really great idea because it
-    should actually make our model 128 times faster for essentially free.
+    An interesting observation is that comma's model is only predicting one
+    token at a time. We can actually make an independence assumption that tokens
+    within a frame won't help predict other tokens within the same frame. The
+    only thing that matters is what that token was in previous frames. In this
+    way we can change the transformer to produce probabilities for every single
+    token in a frame at a single time. Predicting on a frame level instead of
+    token level. This is actually a really great idea because it should actually
+    make our model 128 times faster for essentially free.
+  </p>
+  <p>
+    Just to digress for a second about how comma's model actually works. Each
+    frame is 128 tokens however if you were to just feed the model a stream of
+    tokens it would not perform well because it would not know when a frame
+    begins or ends. So there is a special token designated "beginning of
+    sequence" or BOS that seperates different frames from each other. However
+    when predicting entire frames we can actually completely do away with the
+    BOS and just add another positional embedding but for frame index instead of
+    token index. Below is the cross entropy loss plot for two different models,
+    one trained with the BOS token on a token level and one without the BOS
+    token trained to predict on a frame level. The loss of both models
+    eventually converges and so it seems to validate the independence
+    assumption.
+  </p>
+
+  <img
+    src="attachment\W&B Chart 2_15_2025, 12_15_20 AM (1).png"
+    class="img_responsive"
+    ,
+    width="700"
+  />
+
+  <p>
+    For reference these models are the same architecture as the gpt-2 model but now about 3.7 million parameters. 
   </p>
 </body>
