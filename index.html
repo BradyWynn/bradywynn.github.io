@@ -66,11 +66,11 @@
   <br />
   <p>
     Since each frame is compressed independently there is temporal artifacting
-    between frames but its captures the general features of the image. Something
+    between frames but it captures the general features of the image. Something
     cool is that we can find features in the latent representation directly.
     Below is the average of all the latent frames and there is a visible horizon
-    and road lines even though it is extremely low resoluton. It is also
-    interesting that all of the values are in range of 500 to 525.
+    and road lines even though it is extremely low resolution. It is also
+    interesting that all of the values are in the range of 500 to 525.
   </p>
   <img src="attachment\image.png" class="img_responsive" />
   <p>
@@ -109,7 +109,7 @@
   <p>
     We also need a message to compress and in this case that will simply be
     "bac". To begin encoding the message we split the range from 0 to 1 into
-    three different parts corresponding to our characters, each intervals width
+    three different parts corresponding to our characters, each interval's width
     is dependent on its probability. Since the model assigns the highest
     probability to c it has the largest interval and a and b has smaller
     intervals. The first letter of the message is "b" so the message has to be
@@ -147,14 +147,14 @@
   <p>
     What was described above is called infinite precision arithmetic coding
     because it requires infinite precision. Computers obviously do not have
-    infinite precision and if you were try and implement this it would fail for
-    longer sequences because the intervals would become so tiny that the
+    infinite precision and if you were to try and implement this it would fail
+    for longer sequences because the intervals would become so tiny that the
     computer would not be able to represent them properly.
     <a
       href="https://web.archive.org/web/20241123060529/https://marknelson.us/posts/2014/10/19/data-compression-with-arithmetic-coding.html"
       >This</a
     >
-    excellent blogpost explains the finite precision version of the algorithm
+    excellent blog post explains the finite precision version of the algorithm
     that works for longer sequences and that I used for my implementation.
   </p>
   <h2>the model</h2>
@@ -176,9 +176,9 @@
     major problems. The first is that the model itself takes up 614 mb so even
     just storing the model would take twice the space of the first place
     submission. The second and related problem is that because the model is so
-    large it is extremely slow. On a my gpu (rtx 3070 ti) it runs at 130 tokens per
-    second which doesn't sound that bad, but then you remember that there are
-    768 million tokens so it would take 68 days.
+    large it is extremely slow. On my gpu (rtx 3070 ti) it runs at 130 tokens
+    per second which doesn't sound that bad, but then you remember that there
+    are 768 million tokens so it would take 68 days.
   </p>
   <p>
     As an aside this isn't actually a novel idea, and
@@ -188,19 +188,19 @@
   </p>
   <h2>baseline model</h2>
   <p>
-    So at this point its pretty clear we are going to have to train our own
-    model. This model will almost certainly be worse than the gpt-2 medium sized
-    model but if there is any hope of achieveing a good compression ratio and
-    fast speeds it needs to be done.
+    So at this point it's clear we are going to have to train our own model. It
+    will almost certainly be worse than the one comma has trained but if there
+    is any hope of achieving a good compression ratio and fast speeds it needs
+    to be done.
   </p>
   <p>
     Alongside the 5,000 minutes of driving data we need to compress there is
-    another 95,000 minutes of driving data we can use for training. The
-    first baseline model has around 3.7 million parameters and is trained on 1
-    epoch of the driving data. Most of the training details are rather
-    unimportant but I will say shuffling the data and using Muon instead of
-    AdamW were the two largest performance jumps. Below is the loss
-    graph and when it finishes training the loss is about 2.5.
+    another 95,000 minutes of driving data we can use for training. The first
+    baseline model has around 3.7 million parameters and is trained on 1 epoch
+    of the driving data. Most of the training details are rather unimportant but
+    shuffling the data and using Muon instead of AdamW were the two largest
+    improvements. Below is the loss graph and when it finishes training the loss
+    is about 2.5.
   </p>
 
   <img
@@ -211,51 +211,63 @@
   />
 
   <p>
-    The cool thing about cross entropy is that we can actually use the loss
-    to estimate how well it will compress. The cross entropy implementation
-    in pytorch uses natural log but if we convert it to base 2 we get that the model
-    needs about 3.6 bits per symbol. Since each symbol normally takes 10 bits 
-    we can do 10/3.6 to get a compression ratio of about 2.78. We also need to 
-    store the model which is about 7 mb so the actual compression ratio will be 
-    around 2.7.
+    The cool thing about cross entropy is that you can use the loss to estimate
+    how well it will compress. The cross entropy implementation in pytorch uses
+    natural log but if we convert it to base 2 we get that the model needs about
+    3.6 bits per symbol. Since each symbol normally takes 10 bits we can do
+    10/3.6 to get a compression ratio of about 2.78. This is already better than
+    the second place submission! It's not quite right though because we also
+    need to store the model which is about 7 mb so the actual compression ratio
+    will be around 2.7.
   </p>
 
   <p>
-    So it seems the size of the model is no longer an issue however it is still 
-    painfully slow. It can now generate at 908 tokens per second which is certainly
-    an improvement but would still take 10 days.
+    So it seems the size of the model is no longer an issue however it is still
+    painfully slow. It can now generate at 908 tokens per second which is
+    certainly an improvement but would still take 10 days to decompress all the
+    data.
   </p>
 
   <h2>architecture improvements</h2>
   <p>
-    If speed is an issue we can always just train a smaller model, however 
-    the performance drops as it gets smaller. Instead of shrinking the model
-    we can actually change what exactly its predicting.
+    If speed is an issue we can always just train a smaller model, however the
+    performance drops as it gets smaller. Instead of shrinking the model we can
+    actually change what exactly it's predicting.
   </p>
   <p>
-    An interesting observation is that comma's model is only predicting one
-    token at a time. We can actually make an independence assumption that tokens
-    within a frame won't help predict other tokens within the same frame. The
-    only thing that matters is what that token was in previous frames. In this
-    way we can change the transformer to produce probabilities for every single
-    token in a frame at a single time. Predicting on a frame level instead of
-    token level. This is actually a really great idea because it should actually
-    make our model 128 times faster for essentially free.
+    Currently it is predicting one token at a time. So to decode an entire 128
+    token frame the model needs to be run 128 times. This is because it's an
+    autoregressive process so the previously generated tokens are passed into
+    the context window of the model when it generates the next token. There are
+    ways to speed this up like kv caching but in general it is still very slow.
+    So what if instead of predicting one token at a time we predict one frame at
+    a time. We can make an independence assumption that tokens within a frame
+    won't meaningfully help predict other tokens within the same frame. Just the
+    previous frames are good enough. With this assumption we can modify the
+    transformer to instead produce probabilities for every single token in a
+    frame at the same time. This is actually a really great idea because it
+    means the model is 128 times faster for free.
   </p>
 
   <p>
-    Just to digress for a second about how comma's model actually works. Each
-    frame is 128 tokens however if you were to just feed the model a stream of
-    tokens it would not perform well because it would not know when a frame
-    begins or ends. So there is a special token designated "beginning of
-    sequence" or BOS that seperates different frames from each other. However
-    when predicting entire frames we can actually completely do away with the
-    BOS and just add another positional embedding but for frame index instead of
-    token index. Below is the cross entropy loss plot for two different models,
-    one trained with the BOS token on a token level and one without the BOS
-    token trained to predict on a frame level. The loss of both models
-    eventually converges and so it seems to validate the independence
-    assumption.
+    Another advantage of predicting on a frame level actually comes from an
+    implementation detail with the original model. Since the frames are
+    flattened down into 128 tokens, if you were to feed a frame sequence into
+    the model it would not be able to tell where a frame begins or ends. To fix
+    this an extra token is added to the vocabulary called the BOS or beginning
+    of sequence token and it's used to separate frames. The problem with this
+    however is that now all the frames are 129 tokens instead of the original
+    128. This is not ideal if you're trying to compress the data because now the
+    sequences are even longer. With the modified frame level transformer we can
+    get rid of the BOS token completely and instead just add another positional
+    embedding but for frame position.
+  </p>
+
+  <p>
+    So now just as a sanity check that this independence assumption is
+    reasonable we can compare the loss graphs of the two models. Note that it's
+    not an exact apples to apples comparison because of the differing vocabulary
+    sizes (1024 vs 1025) but it should be close enough.
   </p>
 
   <img
@@ -266,7 +278,10 @@
   />
 
   <p>
-    For reference these models are the same architecture as the gpt-2 model but
-    now about 3.7 million parameters.
+    The models do eventually converge to about the same loss so this seems to
+    validate the independence assumption. The great thing about this is that the
+    new model can now generate at a blazingly fast 116224 tokens per second.
+    This means that to decode all 5000 minutes of driving data it would take
+    (only!) 2 hours.
   </p>
 </body>
