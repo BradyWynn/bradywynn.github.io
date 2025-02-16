@@ -176,9 +176,9 @@
     major problems. The first is that the model itself takes up 614 mb so even
     just storing the model would take twice the space of the first place
     submission. The second and related problem is that because the model is so
-    large it is extremely slow. On a good gpu it runs at about 400 tokens per
+    large it is extremely slow. On a my gpu (rtx 3070 ti) it runs at 130 tokens per
     second which doesn't sound that bad, but then you remember that there are
-    768 million tokens so it would take 21 days.
+    768 million tokens so it would take 68 days.
   </p>
   <p>
     As an aside this isn't actually a novel idea, and
@@ -222,9 +222,16 @@
 
   <p>
     So it seems the size of the model is no longer an issue however it is still 
-    painfully slow.
+    painfully slow. It can now generate at 908 tokens per second which is certainly
+    an improvement but would still take 10 days.
   </p>
+
   <h2>architecture improvements</h2>
+  <p>
+    If speed is an issue we can always just train a smaller model, however 
+    the performance drops as it gets smaller. Instead of shrinking the model
+    we can actually change what exactly its predicting.
+  </p>
   <p>
     An interesting observation is that comma's model is only predicting one
     token at a time. We can actually make an independence assumption that tokens
