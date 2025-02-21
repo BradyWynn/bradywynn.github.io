@@ -4,7 +4,7 @@
 <body>
   <h2>background</h2>
   <p>
-    Over the summer neuralink held a
+    Over the summer Neuralink held a
     <a href="https://content.neuralink.com/compression-challenge/README.html"
       >compression challenge</a
     >
@@ -13,9 +13,9 @@
     <a href="https://x.com/felix_red_panda/status/1794027648257020292"
       >mocked</a
     >
-    as being impossible however it sparked a similar challenge from
+    as being impossible but inspired a similar challenge from
     <a href="https://comma.ai/">comma.ai</a>, a company developing an open
-    source autopilot. This blogpost explains my submission to the challenge that
+    source autopilot. This blogpost explains my submission to the comma challenge that
     is comparable to second place.
   </p>
   <h2>the challenge</h2>
@@ -26,8 +26,8 @@
     width="700"
   />
   <p>
-    The challenge is to "losslessly compress 5,000 minutes of driving data", an
-    example clip of raw driving video is shown below.
+    The challenge is to "losslessly compress 5,000 minutes of driving data."- An
+    example video of driving is shown below. (This video isn't actually from the data provided)
   </p>
   <br />
   <video width="700" controls class="img_responsive">
@@ -39,21 +39,20 @@
   </video>
   <br />
   <p>
-    This isn't actually the data provided. Even though the video is quite low
-    resolution, only 256x128 the full 5,000 minutes would be very large so to
-    make the data easier to handle it has already been heavily compressed using
+    The video is low
+    resolution, just 256x128. Since the full 5,000 minutes of footage would be very large, the data has been heavily compressed using
     a
-    <a href="https://arxiv.org/pdf/1711.00937">VQ-VAE</a>.
+    <a href="https://arxiv.org/pdf/1711.00937">VQ-VAE</a> to make it easier to handle.
   </p>
   <img src="attachment\image2274.png" class="img_responsive" width="700" />
   <p>
     Using the VQ-VAE network the video is compressed from raw 256x128 frames to
     10 bit 16x8 frames. This intermediate frame is called the latent
-    representation and it being 10 bit just means its values can take on any
+    representation and it being 10 bit means its values can take on any
     integer from 0 to 1023. If we only store the latent representation and
-    decoder we can recover the original image, however note that this is lossy
+    decoder we can recover the original image.- Note however that this is lossy
     compression which means information is lost when compressing. Below is the
-    same clip as before but now compressed with the VQ-VAE.
+    same example video but now compressed with the VQ-VAE.
   </p>
   <br />
   <video width="700" controls class="img_responsive">
@@ -65,26 +64,25 @@
   </video>
   <br />
   <p>
-    Since each frame is compressed independently there is temporal artifacting
-    between frames but it captures the general features of the image. Something
-    cool is that we can find features in the latent representation directly.
-    Below is the average of all the latent frames and there is a visible horizon
-    and road lines even though it is extremely low resolution. It is also
+    Since each frame is compressed independently, there is temporal artifacting
+    between them, but it captures the general features of the image. What is interesting
+    is that we can find features in the latent representation directly.
+    Below is the average of all the latent frames, with a visible horizon
+    and road lines despite the low resolution. It is also
     interesting that all of the values are in the range of 500 to 525.
   </p>
   <img src="attachment\image.png" class="img_responsive" />
   <p>
-    Before compression the data is about ~915 mb and the first place submission
-    has a compression ratio of 3.4 so they were able to get it down to about 270
-    mb.
+    Before compression the data is about 915 mb, while the first place submission
+    is about 270 mb, which gives a compression ratio of 3.4.
   </p>
   <h2>arithmetic coding</h2>
   <p>
-    Arithmetic coding is a popular lossless compression technique. Lossless here
-    just means that no information is lost and is different from lossy
-    compression like jpeg that loses quality when compressed. To begin,
+    Arithmetic coding is a popular lossless compression technique. Lossless compression
+    means that no information is lost in the process and is different from lossy
+    compression formats such as jpeg that lose quality when compressed. To begin,
     arithmetic coding first needs a model that assigns a probability to each
-    character of how likely it is to appear. An example model is shown below.
+    character of how likely it is to appear. An example is shown below:
   </p>
   <br />
   <table>
@@ -107,46 +105,45 @@
   </table>
   <br />
   <p>
-    We also need a message to compress and in this case that will simply be
-    "bac". To begin encoding the message we split the range from 0 to 1 into
-    three different parts corresponding to our characters, each interval's width
-    is dependent on its probability. Since the model assigns the highest
-    probability to c it has the largest interval and a and b has smaller
-    intervals. The first letter of the message is "b" so the message has to be
+    We also need a message to compress and in this case we will use
+    "bac"- To begin encoding the message we split the range from 0 to 1 into
+    three different parts corresponding to our characters, with each interval's width
+    dependent on its probability. Since the model assigns the highest
+    probability to "c", it has the largest interval, while "a" and "b" have smaller
+    intervals. The first letter of the message is "b", so the message has to be
     contained within the interval from 0.2 to 0.5. Since we know that the
     message has to be in that interval we can again subdivide it according to
     our characters and their probabilities. The second letter is "a" so the
-    message must be contained within the "a" interval and so we then further it
+    message must be contained within the "a" interval, and we then further subdivide it
     into the three parts. We continue like this until the message has been fully
     encoded. The final interval that our message falls in is from 0.23 to 0.26
-    because for every single point inside the interval the first three letters
+    because, for every single point inside the interval, the first three letters
     of the message are "bac".
   </p>
   <img src="attachment\encode 2.png" class="img_responsive" , width="700" />
   <p>
-    However we haven't actually compressed the message yet. Next we need to
-    convert this range into a binary sequence that we can store. To do this we
-    are going to split the interval from 0 to 1 in half, if the interval of our
-    message falls below 0.5 we record a 0 and above a 1. For our example since
-    the interval 0.23 to 0.26 is below 0.5 we record a 0 and split the range
-    from 0 to 0.5 in half. We continually do this until the binary sequence is
+    However, we haven't actually compressed the message yet. We now need to
+    convert this range into a binary sequence that can be stored. To do this we
+    will split the interval from 0 to 1 in half; if the interval of our
+    message falls below 0.5 we record a 0, and if it falls above 0.5, we record a 1. For our example, since
+    the interval 0.23 to 0.26 is below 0.5, we record a 0 and split the range
+    from 0 to 0.5 in half. We repeat this until the binary sequence is
     entirely contained within the interval of 0.23 to 0.26. For the message
     "bac" the encoding is 001111.
   </p>
 
   <img src="attachment\binary.png" class="img_responsive" , width="700" />
   <p>
-    To decode the encoded message you just do the reverse of the encoding. First
+    To decode the encoded message, you simply do the reverse of the encoding. First,
     convert the binary 001111 to decimal to get 0.234375. Since this falls
-    within the range of 0.2 to 0.5 the first letter is "b". Similarly to the
-    encoding this is continually done until the message is recovered. However
-    you also need an end condition because you could continue decoding a message
+    within the range of 0.2 to 0.5 the first letter is "b". This is repeated until the message is recovered. However,
+    you also need an end condition, because you could continue decoding a message
     forever. You can either define a specific character in the vocabulary to be
-    an end of sequence character or simply stop at a specific length.
+    an end-of-sequence character or simply stop at a specific length.
   </p>
   <p>
     What was described above is called infinite precision arithmetic coding
-    because it requires infinite precision. Computers obviously do not have
+    because it requires infinite precision. Computers do not have
     infinite precision and if you were to try and implement this it would fail
     for longer sequences because the intervals would become so tiny that the
     computer would not be able to represent them properly.
@@ -160,47 +157,47 @@
   <h2>the model</h2>
   <p>
     As previously mentioned for arithmetic coding to work you need a model to
-    provide probabilities for each symbol. Conveniently enough, included in the
-    repository with the driving data is a gpt-2 medium sized model (~350 million
+    provide probabilities for each symbol. Conveniently included in the
+    repository with the driving data is a GPT-2 medium sized model (about 350 million
     parameters) that is trained on 3 million minutes of driving data to predict
-    the next token. Specifically what they did was flatten the 10 bit 16x8
+    the next token. What they did was flatten the 10-bit 16x8
     latent representation into 128 "tokens" and the model takes in a fixed
-    content length of the past n tokens and produces a probability distribution
-    across all of the 1024 possible values of the next token. The full 5,000
+    content length of the past n tokens, produing a probability distribution
+    across all 1024 possible values of the next token. The full 5,000
     minutes of driving data is 768 million tokens (5,000 minutes * 1,200 frames
     per minute * 128 tokens per frame).
   </p>
   <p>
-    So we can actually just plug this model directly into arithmetic coding and
-    use its probabilities to compress the data, and it works, but there are two
-    major problems. The first is that the model itself takes up 614 mb so even
-    just storing the model would take twice the space of the first place
-    submission. The second and related problem is that because the model is so
-    large it is extremely slow. On my gpu (rtx 3070 ti) it runs at 130 tokens
-    per second which doesn't sound that bad, but then you remember that there
-    are 768 million tokens so it would take 68 days.
+    We can plug this model directly into arithmetic coding and
+    use its probabilities to compress the data, and while it works, there are two
+    major problems. The first problem that the model itself takes up 614 mb, so
+    storing the model would take twice the space of the first place
+    submission. The second problem is that because the model is so
+    large, it is extremely slow. On my GPU (RTX 3070 Ti) it runs at 130 tokens
+    per second which doesn't sound terrible, but then you remember that there
+    are 768 million tokens, meaning it would take 68 days.
   </p>
   <p>
-    As an aside this isn't actually a novel idea, and
+    As an aside, this isn't actually a novel idea, and
     <a href="https://arxiv.org/pdf/2309.10668">this</a> paper proposed exactly
     this method but with language models and text compression instead of driving
     data.
   </p>
   <h2>baseline model</h2>
   <p>
-    So at this point it's clear we are going to have to train our own model. It
-    will almost certainly be worse than the one comma has trained but if there
-    is any hope of achieving a good compression ratio and fast speeds it needs
+    At this point it is clear we are going to have to train our own model. It
+    will almost certainly be worse than the one comma trained but if there
+    is any hope of achieving a good compression ratio with fast speeds, it needs
     to be done.
   </p>
   <p>
-    Alongside the 5,000 minutes of driving data we need to compress there is
+    Alongside the 5,000 minutes of driving data we need to compress, there is
     another 95,000 minutes of driving data we can use for training. The first
     baseline model has around 3.7 million parameters and is trained on 1 epoch
-    of the driving data. Most of the training details are rather unimportant but
-    shuffling the data and using Muon instead of AdamW were the two largest
-    improvements. Below is the loss graph and when it finishes training the loss
-    is about 2.5.
+    of the driving data. Most of the training details are unimportant, but
+    shuffling the data and using 
+    <a href="https://github.com/KellerJordan/Muon">Muon</a> instead of AdamW were the two most significant
+    improvements. Below is the loss graph. The loss is about 2.5 when it finishes training.
   </p>
 
   <img
@@ -213,7 +210,7 @@
   <p>
     The cool thing about cross entropy is that you can use the loss to estimate
     how well it will compress. The cross entropy implementation in pytorch uses
-    natural log but if we convert it to base 2 we get that the model needs about
+    natural log, but if we convert it to base 2 we get that the model needs about
     3.6 bits per symbol. Since each symbol normally takes 10 bits we can do
     10/3.6 to get a compression ratio of about 2.78. This is already better than
     the second place submission! It's not quite right though because we also
@@ -222,52 +219,52 @@
   </p>
 
   <p>
-    So it seems the size of the model is no longer an issue however it is still
+    While the size of the model is no longer an issue it is still
     painfully slow. It can now generate at 908 tokens per second which is
-    certainly an improvement but would still take 10 days to decompress all the
+    a definite an improvement, but it would still take 10 days to decompress all the
     data.
   </p>
 
   <h2>architecture improvements</h2>
   <p>
-    If speed is an issue we can always just train a smaller model, however the
+    If speed is an issue, we can always just train a smaller model;- however, the
     performance drops as it gets smaller. Instead of shrinking the model we can
-    actually change what exactly it's predicting.
+    change what it's predicting.
   </p>
   <p>
-    Currently it is predicting one token at a time. So to decode an entire 128
-    token frame the model needs to be run 128 times. This is because it's an
+    It is currently predicting one token at a time. So to decode an entire 128
+    token frame, the model needs to be run 128 times. This is because it's an
     autoregressive process so the previously generated tokens are passed into
     the context window of the model when it generates the next token. There are
-    ways to speed this up like kv caching but in general it is still very slow.
-    So what if instead of predicting one token at a time we predict one frame at
-    a time. We can make an independence assumption that tokens within a frame
-    won't meaningfully help predict other tokens within the same frame. Just the
-    previous frames are good enough. With this assumption we can modify the
+    ways to speed this up like kv caching but it is still very slow.
+    What if instead of predicting one token at a time we predict one frame at
+    a time? We can make an independence assumption that tokens within a frame
+    won't meaningfully help predict other tokens within the same frame. The
+    previous frames are good enough. With this assumption, we can modify the
     transformer to instead produce probabilities for every single token in a
-    frame at the same time. This is actually a really great idea because it
+    frame at the same time. This is a great idea because it
     means the model is 128 times faster for free.
   </p>
 
   <p>
     Another advantage of predicting on a frame level actually comes from an
     implementation detail with the original model. Since the frames are
-    flattened down into 128 tokens, if you were to feed a frame sequence into
-    the model it would not be able to tell where a frame begins or ends. To fix
-    this an extra token is added to the vocabulary called the BOS or beginning
-    of sequence token and it's used to separate frames. The problem with this
-    however is that now all the frames are 129 tokens instead of the original
-    128. This is not ideal if you're trying to compress the data because now the
-    sequences are even longer. With the modified frame level transformer we can
-    get rid of the BOS token completely and instead just add another positional
-    embedding but for frame position.
+    flattened down into 128 tokens, feeding a frame sequence into
+    the model would prevent it from distinguishing where a frame begins or ends. To fix
+    this, an extra token is added to the vocabulary called the BOS, or "Beginning
+    of Sequence" token, and it's used to separate frames. The problem with this,
+    however, is that now all the frames are 129 tokens instead of the original
+    128. This is not ideal if you're trying to compress the data because the
+    sequences are now longer. With the modified frame level transformer we can
+    get rid of the BOS token completely and instead add another positional
+    embedding for frame position.
   </p>
 
   <p>
-    So now just as a sanity check that this independence assumption is
-    reasonable we can compare the loss graphs of the two models. Note that it's
+    As a sanity check that this independence assumption is
+    reasonable, we can compare the loss graphs of the two models. While this is
     not an exact apples to apples comparison because of the differing vocabulary
-    sizes (1024 vs 1025) but it should be close enough.
+    sizes (1024 vs 1025), it should be close enough.
   </p>
 
   <img
@@ -278,10 +275,19 @@
   />
 
   <p>
-    The models do eventually converge to about the same loss so this seems to
+    The models eventually converge to about the same loss so this seems to
     validate the independence assumption. The great thing about this is that the
-    new model can now generate at a blazingly fast 116224 tokens per second.
-    This means that to decode all 5000 minutes of driving data it would take
-    (only!) 2 hours.
+    new model can now generate at a blazingly fast 116,224 tokens per second.
+    This means that to decode all 5,000 minutes of driving data it would take
+    only 2 hours!
+  </p>
+
+  <h2>model size</h2>
+  <p>
+    So far the size of the baseline model was chosen arbitrarily but it has a major
+    impact on the compression ratio. A larger model has a lower loss and can therefore
+    compress better but the model itself takes up more space. Conversely a smaller model
+    takes up less space but compresses worse. There is some optimal model size where the 
+    tradeoffs are correctly balanced to achieve the maximum compression ratio.
   </p>
 </body>
