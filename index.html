@@ -26,7 +26,7 @@
     width="700"
   />
   <p>
-    The challenge is to "losslessly compress 5,000 minutes of driving data."- An
+    The challenge is to "losslessly compress 5,000 minutes of driving data." An
     example video of driving is shown below. (This video isn't actually from the data provided)
   </p>
   <br />
@@ -50,7 +50,7 @@
     10 bit 16x8 frames. This intermediate frame is called the latent
     representation and it being 10 bit means its values can take on any
     integer from 0 to 1023. If we only store the latent representation and
-    decoder we can recover the original image.- Note however that this is lossy
+    decoder we can recover the original image. Note however that this is lossy
     compression which means information is lost when compressing. Below is the
     same example video but now compressed with the VQ-VAE.
   </p>
@@ -68,8 +68,7 @@
     between them, but it captures the general features of the image. What is interesting
     is that we can find features in the latent representation directly.
     Below is the average of all the latent frames, with a visible horizon
-    and road lines despite the low resolution. It is also
-    interesting that all of the values are in the range of 500 to 525.
+    and road lines despite the low resolution.
   </p>
   <img src="attachment\image.png" class="img_responsive" />
   <p>
@@ -106,15 +105,15 @@
   <br />
   <p>
     We also need a message to compress and in this case we will use
-    "bac"- To begin encoding the message we split the range from 0 to 1 into
-    three different parts corresponding to our characters, with each interval's width
+    "bac". To begin encoding the message we split the range from 0 to 1 into
+    three different parts corresponding to the characters, with each interval's width
     dependent on its probability. Since the model assigns the highest
     probability to "c", it has the largest interval, while "a" and "b" have smaller
     intervals. The first letter of the message is "b", so the message has to be
     contained within the interval from 0.2 to 0.5. Since we know that the
     message has to be in that interval we can again subdivide it according to
     our characters and their probabilities. The second letter is "a" so the
-    message must be contained within the "a" interval, and we then further subdivide it
+    message must be contained within the new "a" interval, and we then further subdivide it
     into the three parts. We continue like this until the message has been fully
     encoded. The final interval that our message falls in is from 0.23 to 0.26
     because, for every single point inside the interval, the first three letters
@@ -163,9 +162,7 @@
     the next token. What they did was flatten the 10-bit 16x8
     latent representation into 128 "tokens" and the model takes in a fixed
     content length of the past n tokens, produing a probability distribution
-    across all 1024 possible values of the next token. The full 5,000
-    minutes of driving data is 768 million tokens (5,000 minutes * 1,200 frames
-    per minute * 128 tokens per frame).
+    across all 1024 possible values for the next token.
   </p>
   <p>
     We can plug this model directly into arithmetic coding and
@@ -174,8 +171,8 @@
     storing the model would take twice the space of the first place
     submission. The second problem is that because the model is so
     large, it is extremely slow. On my GPU (RTX 3070 Ti) it runs at 130 tokens
-    per second which doesn't sound terrible, but then you remember that there
-    are 768 million tokens, meaning it would take 68 days.
+    per second which doesn't sound terrible, but since there
+    are 768 million tokens (5,000 minutes * 1,200 frames per minute * 128 tokens per frame) it would take 68 days.
   </p>
   <p>
     As an aside, this isn't actually a novel idea, and
@@ -193,11 +190,11 @@
   <p>
     Alongside the 5,000 minutes of driving data we need to compress, there is
     another 95,000 minutes of driving data we can use for training. The first
-    baseline model has around 3.7 million parameters and is trained on 1 epoch
-    of the driving data. Most of the training details are unimportant, but
+    baseline model has around 3.7 million parameters and is trained for 1 epoch.
+    Most of the training details are unimportant, but
     shuffling the data and using 
     <a href="https://github.com/KellerJordan/Muon">Muon</a> instead of AdamW were the two most significant
-    improvements. Below is the loss graph. The loss is about 2.5 when it finishes training.
+    improvements. Below is the loss graph and the final loss is about 2.5.
   </p>
 
   <img
@@ -212,22 +209,22 @@
     how well it will compress. The cross entropy implementation in pytorch uses
     natural log, but if we convert it to base 2 we get that the model needs about
     3.6 bits per symbol. Since each symbol normally takes 10 bits we can do
-    10/3.6 to get a compression ratio of about 2.78. This is already better than
+    10/3.6 to get a compression ratio of 2.78. This is already better than
     the second place submission! It's not quite right though because we also
     need to store the model which is about 7 mb so the actual compression ratio
-    will be around 2.7.
+    will be closer to 2.7.
   </p>
 
   <p>
     While the size of the model is no longer an issue it is still
-    painfully slow. It can now generate at 908 tokens per second which is
+    painfully slow. It generates at 908 tokens per second which is
     a definite an improvement, but it would still take 10 days to decompress all the
     data.
   </p>
 
   <h2>architecture improvements</h2>
   <p>
-    If speed is an issue, we can always just train a smaller model;- however, the
+    If speed is an issue, we can always just train a smaller model; however, the
     performance drops as it gets smaller. Instead of shrinking the model we can
     change what it's predicting.
   </p>
@@ -235,11 +232,10 @@
     It is currently predicting one token at a time. So to decode an entire 128
     token frame, the model needs to be run 128 times. This is because it's an
     autoregressive process so the previously generated tokens are passed into
-    the context window of the model when it generates the next token. There are
-    ways to speed this up like kv caching but it is still very slow.
+    the context window of the model when it generates the next token.
     What if instead of predicting one token at a time we predict one frame at
     a time? We can make an independence assumption that tokens within a frame
-    won't meaningfully help predict other tokens within the same frame. The
+    won't meaningfully help predict other tokens within the same frame, just the
     previous frames are good enough. With this assumption, we can modify the
     transformer to instead produce probabilities for every single token in a
     frame at the same time. This is a great idea because it
@@ -255,7 +251,7 @@
     of Sequence" token, and it's used to separate frames. The problem with this,
     however, is that now all the frames are 129 tokens instead of the original
     128. This is not ideal if you're trying to compress the data because the
-    sequences are now longer. With the modified frame level transformer we can
+    sequences are now longer. However,` with the modified frame level transformer we can
     get rid of the BOS token completely and instead add another positional
     embedding for frame position.
   </p>
