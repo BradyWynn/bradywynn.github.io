@@ -5,42 +5,30 @@
   <h2>background</h2>
   <p>
     Over the summer Neuralink held a
-    <a href="https://content.neuralink.com/compression-challenge/README.html"
-      >compression challenge</a
-    >
+    <a href="https://content.neuralink.com/compression-challenge/README.html">compression challenge</a>
     where 200x lossless compression was needed to send electrode recordings
     wirelessly. This was
-    <a href="https://x.com/felix_red_panda/status/1794027648257020292"
-      >mocked</a
-    >
+    <a href="https://x.com/felix_red_panda/status/1794027648257020292">mocked</a>
     as being impossible but inspired a similar challenge from
     <a href="https://comma.ai/">comma.ai</a>, a company developing an open
     source autopilot. This blogpost explains my submission to the comma challenge that
     is comparable to second place.
   </p>
   <h2>the challenge</h2>
-  <img
-    src="attachment\Screenshot 2025-02-08 225622.png"
-    ,
-    class="img_responsive"
-    width="700"
-  />
+  <img src="attachment\Screenshot 2025-02-08 225622.png" , class="img_responsive" width="700" />
   <p>
     The challenge is to "losslessly compress 5,000 minutes of driving data." An
     example video of driving is shown below. (This video isn't actually from the data provided)
   </p>
   <br />
   <video width="700" controls class="img_responsive">
-    <source
-      src="attachment\249573591-91894bf7-592b-4204-b3f2-3e805984045c.mp4"
-      ,
-      type="video/mp4"
-    />
+    <source src="attachment\249573591-91894bf7-592b-4204-b3f2-3e805984045c.mp4" , type="video/mp4" />
   </video>
   <br />
   <p>
     The video is low
-    resolution, just 256x128. Since the full 5,000 minutes of footage would be very large, the data has been heavily compressed using
+    resolution, just 256x128. Since the full 5,000 minutes of footage would be very large, the data has been heavily
+    compressed using
     a
     <a href="https://arxiv.org/pdf/1711.00937">VQ-VAE</a> to make it easier to handle.
   </p>
@@ -56,11 +44,7 @@
   </p>
   <br />
   <video width="700" controls class="img_responsive">
-    <source
-      src="attachment\249573605-3a799ac8-781e-461c-bf14-c15cea42b985.mp4"
-      ,
-      type="video/mp4"
-    />
+    <source src="attachment\249573605-3a799ac8-781e-461c-bf14-c15cea42b985.mp4" , type="video/mp4" />
   </video>
   <br />
   <p>
@@ -147,9 +131,7 @@
     for longer sequences because the intervals would become so tiny that the
     computer would not be able to represent them properly.
     <a
-      href="https://web.archive.org/web/20241123060529/https://marknelson.us/posts/2014/10/19/data-compression-with-arithmetic-coding.html"
-      >This</a
-    >
+      href="https://web.archive.org/web/20241123060529/https://marknelson.us/posts/2014/10/19/data-compression-with-arithmetic-coding.html">This</a>
     excellent blog post explains the finite precision version of the algorithm
     that works for longer sequences and that I used for my implementation.
   </p>
@@ -188,12 +170,7 @@
     to be done.
   </p>
 
-  <img
-    src="attachment/W&B Chart 2_15_2025, 1_49_38 PM.png"
-    class="img_responsive"
-    ,
-    width="700"
-  />
+  <img src="attachment/W&B Chart 2_15_2025, 1_49_38 PM.png" class="img_responsive" , width="700" />
 
   <p>
     The cool thing about cross entropy is that you can use the loss to estimate
@@ -254,12 +231,7 @@
     sizes (1024 vs 1025), it should be close enough.
   </p>
 
-  <img
-    src="attachment\W&B Chart 2_15_2025, 12_15_20 AM (1).png"
-    class="img_responsive"
-    ,
-    width="700"
-  />
+  <img src="attachment\W&B Chart 2_15_2025, 12_15_20 AM (1).png" class="img_responsive" , width="700" />
 
   <p>
     The models eventually converge to about the same loss so this seems to
@@ -275,7 +247,7 @@
     another 95,000 minutes of driving data we can use for training. The first
     baseline model has around 3.7 million parameters and is trained for 1 epoch.
     Most of the training details are unimportant, but
-    shuffling the data and using 
+    shuffling the data and using
     <a href="https://github.com/KellerJordan/Muon">Muon</a> instead of AdamW were the two most significant
     improvements. Below is the loss graph and the final loss is about 2.5.
   </p>
@@ -284,13 +256,14 @@
     So far the size of the baseline model was chosen arbitrarily but it has a major
     impact on the compression ratio. A larger model has a lower loss and can therefore
     compress better but the model itself takes up more space. Conversely a smaller model
-    takes up less space but compresses worse. There is some optimal model size where the 
+    takes up less space but compresses worse. There is some optimal model size where the
     tradeoffs are balanced to achieve the maximum compression ratio.
   </p>
 
   <p>
-    To get an idea of model size and loss I trained many different models. They're relatively
-    small, the largest being only 9 million parameters but I am gpu poor and don't want to wait a 
+    To get an idea of how model size affects loss I trained many differently sized models to convergence. They're
+    relatively
+    small, the largest being only 9 million parameters but I am gpu poor and don't want to wait a
     month for a training run.
   </p>
 
@@ -338,41 +311,54 @@
   </table>
 
   <p>
-    Every model was trained with a batch size of 2^20 and a Muon learning rate of 0.02 and an AdamW learning rate of 0.0003.
-    The models are all trained for 1 epoch which is probably longer than they need. The loss graph converges rather quickly
-    and the loss stays around the same. I could have probably figured out the compute optimal training steps but I couldn't
-    be bothered.
+    Every model was trained with a batch size of 1,048,576 and for 1 epoch where a single epoch is 14,000 steps so 14
+    billion tokens in total.
+    For most of the models this is much more training than they need and certainly more than the compute optimal amount.
+    However note that the compute
+    optimal model size isn't strictly what we're optimizing because a larger model takes up more space so sometimes it
+    may be a better idea to train a smaller
+    model to convergence.
   </p>
 
   <img src="attachment/figure_1.png" class="img_responsive" width="700">
 
   <p>
-    This plot is a log-log plot with the cross entropy loss on the y axis and training 
-    time on the x axis. Here training time is really just equivalent to compute since the batch size is the 
-    same for all of the models. Notice how the larger models eventually lead to better loss in the same amount of time
-    and that there is a compute optimal frontier traced out by each run.
+    This plot is a log-log plot with the cross entropy loss on the y axis and compute measured in PetaFLOP-days
+    on the x axis. The larger models eventually lead to better loss in the same amount of time
+    and the left edge of all the runs trace out a compute optimal frontier.
   </p>
 
   <p>
-    Since we have many differently sized models and their cross-entropy loss we can use them to approximate the parameter-loss scaling with a power law like
-    proposed in "<a href=https://arxiv.org/pdf/2001.08361>Scaling Laws for Neural Language Models</a>". Following their convention
-    I am using non-embedding parameters. Below you can see the fitted power law on another log-log plot where the x axis is parameter count and 
-    the y axis is cross entropy loss. 
+    Since we have many differently sized models and their loss we can use them to fit a power law as
+    proposed in "<a href=https://arxiv.org/pdf/2001.08361>Scaling Laws for Neural Language Models</a>". Following their
+    convention
+    I am using non-embedding parameters. Below you can see the fitted power law on another log-log plot where the x axis
+    is parameter count and
+    the y axis is cross entropy loss.
   </p>
 
-  <img src="attachment/Screenshot 2025-02-23 231951.png" class="img_responsive" width="700">
+  <img src="attachment/Figure_1.png" class="img_responsive" width="700">
 
   <p>
-    We can use this graph to get the compression ratio graph by converting from base e to base 2 and doing 10/f(x) as mentioned before.
-    This is because originally it took 10 bits to represent each symbol.
+    We can use this to approximate the loss for a model with N parameters, or say need a certain loss L how large the model
+    would need to be. We can transform this graph in as described before to achieve the graph for compression ratio.
+
   </p>
 
-  <img src="attachment/Screenshot 2025-02-23 125513.png" class="img_responsive" width="700">
+  <img src="attachment/Figure_2.png" class="img_responsive" width="700">
 
-  <p>  
-    However we also have to store the model
-    so we need the function for model size as a function of parameters. For this I am assuming 16 bit parameters because 
-    the models are using bfloat16.
+  <p>
+    This is not a log-log plot and it really demonstrates how quickly the compression ratio tapers off.
+    A model with a compression ratio equal to first place would need 33 million parameters but of course the model itself would take up space.
+    We can factor this into the equation to get the actual compression ratio equation.
+  </p>
+
+  <img src="attachment/Figure_3.png" class="img_responsive" width="700">
+
+  <p>
+    This is the actual compression ratio graph. You can see instead of increasing forever there is a peak
+    around 3 where the compression ratio is maximized. Specifically It is at 9.5 million parameters with a loss of 
+    2.2.
   </p>
 
 </body>
