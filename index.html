@@ -187,15 +187,6 @@
     is any hope of achieving a good compression ratio with fast speeds, it needs
     to be done.
   </p>
-  <p>
-    Alongside the 5,000 minutes of driving data we need to compress, there is
-    another 95,000 minutes of driving data we can use for training. The first
-    baseline model has around 3.7 million parameters and is trained for 1 epoch.
-    Most of the training details are unimportant, but
-    shuffling the data and using 
-    <a href="https://github.com/KellerJordan/Muon">Muon</a> instead of AdamW were the two most significant
-    improvements. Below is the loss graph and the final loss is about 2.5.
-  </p>
 
   <img
     src="attachment/W&B Chart 2_15_2025, 1_49_38 PM.png"
@@ -280,10 +271,108 @@
 
   <h2>model size</h2>
   <p>
+    Alongside the 5,000 minutes of driving data we need to compress, there is
+    another 95,000 minutes of driving data we can use for training. The first
+    baseline model has around 3.7 million parameters and is trained for 1 epoch.
+    Most of the training details are unimportant, but
+    shuffling the data and using 
+    <a href="https://github.com/KellerJordan/Muon">Muon</a> instead of AdamW were the two most significant
+    improvements. Below is the loss graph and the final loss is about 2.5.
+  </p>
+
+  <p>
     So far the size of the baseline model was chosen arbitrarily but it has a major
     impact on the compression ratio. A larger model has a lower loss and can therefore
     compress better but the model itself takes up more space. Conversely a smaller model
     takes up less space but compresses worse. There is some optimal model size where the 
-    tradeoffs are correctly balanced to achieve the maximum compression ratio.
+    tradeoffs are balanced to achieve the maximum compression ratio.
   </p>
+
+  <p>
+    To get an idea of model size and loss I trained many different models. They're relatively
+    small, the largest being only 9 million parameters but I am gpu poor and don't want to wait a 
+    month for a training run.
+  </p>
+
+  <table>
+    <tr>
+      <th>params</th>
+      <th>n_layer</th>
+      <th>dim</th>
+      <th>n_head</th>
+      <th>muon_lr</th>
+      <th>adamw_lr</th>
+    </tr>
+    <tr>
+      <th>196608</th>
+      <th>1</th>
+      <th>128</th>
+      <th>1</th>
+      <th>0.02</th>
+      <th>0.0003</th>
+    </tr>
+    <tr>
+      <th>393216</th>
+      <th>2</th>
+      <th>128</th>
+      <th>2</th>
+      <th>0.02</th>
+      <th>0.0003</th>
+    </tr>
+    <tr>
+      <th>1572864</th>
+      <th>2</th>
+      <th>256</th>
+      <th>2</th>
+      <th>0.02</th>
+      <th>0.0003</th>
+    </tr>
+    <tr>
+      <th>6291456</th>
+      <th>8</th>
+      <th>256</th>
+      <th>8</th>
+      <th>0.02</th>
+      <th>0.0003</th>
+    </tr>
+  </table>
+
+  <p>
+    Every model was trained with a batch size of 2^20 and a Muon learning rate of 0.02 and an AdamW learning rate of 0.0003.
+    The models are all trained for 1 epoch which is probably longer than they need. The loss graph converges rather quickly
+    and the loss stays around the same. I could have probably figured out the compute optimal training steps but I couldn't
+    be bothered.
+  </p>
+
+  <img src="attachment/figure_1.png" class="img_responsive" width="700">
+
+  <p>
+    This plot is a log-log plot with the cross entropy loss on the y axis and training 
+    time on the x axis. Here training time is really just equivalent to compute since the batch size is the 
+    same for all of the models. Notice how the larger models eventually lead to better loss in the same amount of time
+    and that there is a compute optimal frontier traced out by each run.
+  </p>
+
+  <p>
+    Since we have many differently sized models and their cross-entropy loss we can use them to approximate the parameter-loss scaling with a power law like
+    proposed in "<a href=https://arxiv.org/pdf/2001.08361>Scaling Laws for Neural Language Models</a>". Following their convention
+    I am using non-embedding parameters. Below you can see the fitted power law on another log-log plot where the x axis is parameter count and 
+    the y axis is cross entropy loss. 
+  </p>
+
+  <img src="attachment/Screenshot 2025-02-23 231951.png" class="img_responsive" width="700">
+
+  <p>
+    We can use this graph to get the compression ratio graph by converting from base e to base 2 and doing 10/f(x) as mentioned before.
+    This is because originally it took 10 bits to represent each symbol.
+  </p>
+
+  <img src="attachment/Screenshot 2025-02-23 125513.png" class="img_responsive" width="700">
+
+  <p>  
+    However we also have to store the model
+    so we need the function for model size as a function of parameters. For this I am assuming 16 bit parameters because 
+    the models are using bfloat16.
+  </p>
+
 </body>
