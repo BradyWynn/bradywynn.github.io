@@ -3,19 +3,44 @@ import polars as pl
 import math
 import numpy as np
 
+# model_names = ["old"]
+
+# plt.ylabel("Test Loss")
+# plt.xlabel("Steps")
+
+# for i in model_names:
+#     df = pl.read_csv(f"runs/{i}.csv")
+#     plt.plot(df.select("Step").to_numpy(), df.select(f"{i} - loss"), label="baseline", alpha=1.0)
+
+# plt.ylim(2, 7)
+# plt.xlim(0, 8000)
+# plt.grid()
+# plt.legend()
+# plt.savefig("Figure_1.png")
+
 model_names = ["196608", "393216", "3145728", "6291456", "9437184"]
 
 # plot #1
-# plt.ylabel("Test Loss")
-# plt.xlabel("Compute (PF-days)")
-# plt.xscale('log', base=10) 
-# plt.grid()
+# import matplotlib.ticker as mticker
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+
+# ax.set_ylabel("Test Loss")
+# ax.set_xlabel("Compute (PF-days)")
+# ax.set_xscale('log', base=10) 
+# ax.set_yscale('log', base=10) 
+# # ax.grid()
 
 # for i in model_names:
-#     df = pl.read_csv(f"{i}.csv")
-#     plt.plot((df.select("Step").to_numpy() * int(i) * 2**20 * 6)/(10**15 * 24 * 3600), df.select(f"{i} - loss"), label=f"{int(i)/1000000:.2f}M", alpha=0.5)
-# plt.legend()
-# plt.savefig("Figure_1.png")
+#     df = pl.read_csv(f"runs/{i}.csv")
+#     ax.plot((df.select("Step").to_numpy() * int(i) * 2**20 * 6)/(10**15 * 24 * 3600), df.select(f"{i} - loss"), label=f"{int(i)/1000000:.2f}M", alpha=0.5)
+
+# ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
+# ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
+# ax.tick_params(axis='y', which='both', labelsize=10)  # Adjust label size if needed
+
+# ax.legend()
+# fig.savefig("test_loss_vs_compute.png")
 
 # plot #2
 import matplotlib.ticker as mticker
@@ -28,12 +53,12 @@ ax.set_xlabel("Parameters")
 ax.set_xscale('log', base=10) 
 ax.set_yscale('log', base=10) 
 
-x = np.arange(10**5, 10**8, 100)
-y = (x/(2.8547948944*10**12))**(-0.0626432447907)
-ax.plot(x, y, linestyle="--", color="gray", label=r'$L=\left(N/2.855\cdot10^{12}\right)^{-0.0626}$')
+x = np.arange(10**5, 2*10**7, 100)
+y = (x/(2.65293642*10**12))**(-0.0629678928294751)
+ax.plot(x, y, linestyle="--", color="gray", label=r'$L=\left(N/2.653\cdot10^{12}\right)^{-0.0630}$')
 
 for i in model_names:
-    df = pl.read_csv(f"{i}.csv")
+    df = pl.read_csv(f"runs/{i}.csv")
     ax.scatter(int(i), df.select(f"{i} - loss")[-100:].to_numpy().mean())
     print(i, df.select(f"{i} - loss")[-100:].to_numpy().mean())
 ax.legend()
