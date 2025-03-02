@@ -156,7 +156,7 @@
     excellent blog post explains the finite precision version of the algorithm
     that works for longer sequences and that I used for my implementation.
   </p>
-  <h2>the model</h2>
+  <h2>transformers for arithmetic coding</h2>
   <p>
     As previously mentioned for arithmetic coding to work you need a model to
     provide probabilities for each symbol. Conveniently included in the
@@ -259,7 +259,7 @@
     to decode all 5,000 minutes of driving data it would take only 2 hours!
   </p>
 
-  <h2>model size</h2>
+  <h2>optimal model size</h2>
   <p>
     The size of the baseline model was chosen arbitrarily but it has a major
     impact on the compression ratio. A larger model has a lower loss and can
@@ -403,5 +403,29 @@
     One very common and easy performance gain is kv caching. Currently when doing a
     forward pass the model is computing the key and values for every single token
     in the context. This is actually pretty wasteful because 
+  </p>
+
+  <h2>a technical detail about decompression</h2>
+  <p>
+    Something that I have skipped up until now is how to actually
+    store the bitstream produced from the arithmetic coding. Each frame is
+    compressed into a variable number of bits so if we naively store it as
+    one single bitstream it becomes impossible to tell where one frame
+    begins and another ends. Or so you would think. What we can actually do
+    is pass the first 2000 bits to be decompressed by arithmetic coding
+    and we can get an idea how large the first frame is by how many bits
+    it takes to decode the frame. This is simply an upper bound though because
+    when decode it can actually read past the end of the frame and still reconstruct
+    it correctly.
+  </p>
+  <code>0100100010001010100101010</code>
+  <br>
+  <code>[message bits][junk bits]</code>
+  <p>
+    So there is actually a pretty clever solution to this. We decode the 
+    first frame and get the ground truth values for the frame. We can use the number
+    of bits used to decode it as an upper bound for the actual size. Then we can flip
+    the last bit of the original sequence and again decode it and compare the result.
+    If the output has changed we know we have hit part of the original frame.
   </p>
 </body>
