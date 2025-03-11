@@ -398,34 +398,39 @@
     which means it would take about 10 hours to decompress.
   </p>
 
-  <h2>kv caching</h2>
+  <h2>kv caching and batching</h2>
   <p>
     One very common and easy performance gain is kv caching. Currently when doing a
     forward pass the model is computing the key and values for every single token
-    in the context. This is actually pretty wasteful because 
+    in the context. This is actually pretty wasteful because the key and values do
+    not change for already seen tokens. So the idea of the optimization is just to
+    cache the key and value matrices and only compute them for the new token. This
+    reduces the computation at each step from n^2 to just n.
   </p>
-
-  <h2>a technical detail about decompression</h2>
   <p>
-    Something that I have skipped up until now is how to actually
-    store the bitstream produced from the arithmetic coding. Each frame is
-    compressed into a variable number of bits so if we naively store it as
-    one single bitstream it becomes impossible to tell where one frame
-    begins and another ends. Or so you would think. What we can actually do
-    is pass the first 2000 bits to be decompressed by arithmetic coding
-    and we can get an idea how large the first frame is by how many bits
-    it takes to decode the frame. This is simply an upper bound though because
-    when decode it can actually read past the end of the frame and still reconstruct
-    it correctly.
+    
   </p>
-  <code>0100100010001010100101010</code>
-  <br>
-  <code>[message bits][junk bits]</code>
+  
+  <h2>Final Remarks</h2>
   <p>
-    So there is actually a pretty clever solution to this. We decode the 
-    first frame and get the ground truth values for the frame. We can use the number
-    of bits used to decode it as an upper bound for the actual size. Then we can flip
-    the last bit of the original sequence and again decode it and compare the result.
-    If the output has changed we know we have hit part of the original frame.
+    Obviously there is still room for improvement here, in both compression ratio and 
+    the speed of decoding. You could quantize the model to 8 or 4 bits or do
+    weight tying between the encoder and decoder or not even store a model at all
+    and learn the model as you decode. 
+  </p>
+  <p>
+    I wanted to train general models so I used the last 
+    95,000 minutes as the training set and the first 5,000 as validation. You could instead
+    train on the first 5,000 minutes alone for many epochs to deliberately overfit and improve
+    the compression ratio.
+  </p>
+  <p>
+    With respect to decompression speed the main bottleneck on my machine was memory bandwidth.
+    Each time the model does a forward pass it has to transfer a matrix size (batch_size, 128, 1024)
+    to the CPU. This could be avoided with an arithmetic coding implementation on the GPU directly.
+    An easier solution is just adding more GPUs and decoding in parallel.
+  </p>
+  <p>
+    Finally I would like to thank comma for putting on this challenge, it was very fun!
   </p>
 </body>
