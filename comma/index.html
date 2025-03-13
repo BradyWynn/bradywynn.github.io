@@ -393,8 +393,8 @@
     ratio and model size.
   </p>
   <p>
-    So we have a model that is pretty close to the optimal model size but its
-    actually pretty slow. It is only able to get around 20,000 tokens per second
+    So we have a model that is close to the optimal model size but its
+    slow. It is only able to get around 20,000 tokens per second
     which means it would take about 10 hours to decompress.
   </p>
 
@@ -402,10 +402,12 @@
   <p>
     One very common and easy performance gain is kv caching. Currently when doing a
     forward pass the model is computing the key and values for every single token
-    in the context. This is actually pretty wasteful because the key and values do
-    not change for already seen tokens. So the idea of the optimization is just to
-    cache the key and value matrices and only compute them for the new token. This
-    reduces the computation at each step from n^2 to just n.
+    in the context. This is pretty wasteful because the key and values do
+    not change for already seen tokens so most of the computation in a single pass is wasted recomputing already seen tokens. 
+    The idea of kv caching is just to compute the key and value pairs for each token once and then store them to be reused.
+  </p>
+  <p>
+    Suprisingly the performance gain from this isn't actually that great.
   </p>
   <p>
     
