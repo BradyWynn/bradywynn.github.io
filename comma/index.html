@@ -163,20 +163,19 @@
     repository with the driving data is a GPT-2 medium sized model (about 350
     million parameters) that is trained on 3 million minutes of driving data to
     predict the next token. What they did was flatten the 10-bit 16x8 latent
-    representation into 128 "tokens" per frame and the model takes in a context
-    the past tokens and produces a probability distribution across all 1024
+    representation into 128 "tokens" per frame and the model takes in past
+    tokens as context and produces a probability distribution across all 1024
     possible values for the next token.
   </p>
   <p>
-    We can plug this model directly into arithmetic coding and use its
-    probabilities to compress the data, and while it works, there are two major
-    problems. The first problem that the model itself takes up 614 mb, so
-    storing the model would take twice the space of the first place submission.
-    The second problem is that because the model is so large, it is extremely
-    slow. On my GPU (RTX 3070 Ti) it runs at 130 tokens per second which doesn't
-    sound terrible, but since there are 768 million tokens (5,000 minutes *
-    1,200 frames per minute * 128 tokens per frame) it would take 68 days to
-    decode all of them.
+    We can use this model with arithmetic coding to compress the data, and while
+    it works, there are two major problems. The first problem is that the model
+    itself takes up 614 mb, so just storing it would take more than twice the
+    space of the entire first place submission. The second problem is that
+    because the model is so large, it is extremely slow. On my GPU (RTX 3070 Ti)
+    it runs at 130 tokens per second which doesn't sound terrible, but since
+    there are 768 million tokens (5,000 minutes * 1,200 frames per minute * 128
+    tokens per frame) it would take 68 days to decode all of them.
   </p>
   <p>
     As an aside, this isn't actually a novel idea, and
@@ -186,68 +185,71 @@
   </p>
   <h2>baseline model</h2>
   <p>
-    To get hopefully a more realistic baseline we can train a similar model to
+    To hopefully get a more realistic baseline we can train a similar model to
     the one comma trained but with 100x less parameters. This should make it
-    significantly faster and easier to experiment with. It is also trained to
-    predict the next token and is trained with cross entropy loss.
+    significantly faster and easier to work with.
   </p>
 
   <img src="attachment/baseline.png" class="img_responsive" , width="700" />
 
   <p>
-    Using the cross entropy loss we can estimate how well it will compress. In
-    PyTorch cross entropy uses natural log, but if we convert it to base 2 we
-    get that the model needs about 3.6 bits per symbol. Since each symbol
-    normally takes 10 bits we can do 10/3.6 to get a compression ratio of 2.78.
-    This is already better than the second place submission! It's not quite
-    right though because we also need to store the model which is about 7 mb so
-    the actual compression ratio will be closer to 2.7.
+    Using the cross entropy loss from training the model we can estimate how
+    well it will compress. In PyTorch cross entropy uses natural log, but if we
+    convert it to base 2 we get that the model needs about 3.6 bits per symbol.
+    Since each symbol normally takes 10 bits we can do 10/3.6 to get a
+    compression ratio of 2.78. This is already better than the second place
+    submission! It's not quite right though because we also need to store the
+    model which is about 7 mb so the actual compression ratio will be closer to
+    2.7.
   </p>
 
   <p>
-    While the size of the model is no longer an issue it is still painfully
-    slow. It generates at 908 tokens per second which is an improvement, but it
-    would still take 10 days to decompress all the data.
+    Even though we made the model 100x smaller speed is still an issue. It now
+    generates at 908 tokens per second which is an improvement, but it would
+    still take 10 days to decompress all the data.
   </p>
 
   <h2>architecture improvements</h2>
   <p>
-    If speed is an issue, we can always just train a smaller model; however, the
-    performance drops as it gets smaller. Instead of shrinking the model we can
-    change what it's predicting.
+    We can always just continue to train smaller and smaller models until it is
+    fast enough, but the performance drops as it gets smaller so it can't be too
+    tiny. Let's take a moment and think about what the model is actually doing.
   </p>
   <p>
-    Currently the model generates one token at a time, so to decode an entire
-    128 token frame the model needs to be run 128 times. This is because it's an
-    autoregressive process so the previously generated tokens are passed into
-    the context window of the model when it generates the next token.
+    Currently the model takes in the context tokens, then outputs a probability
+    distribution over all possible next tokens that gets passed to the
+    arithmetic coder to compress the sequence. Since each frame of video is 128
+    tokens this process repeats 128 times to compress a single frame and this
+    constant switching between the model doing inference and the arithmetic
+    coder compressing is not good for performance.
   </p>
   <p>
-    To get around the slow speeds we can make an independence assumption that
-    tokens within a frame won't help predict other tokens within the same frame,
-    just the previous frames are good enough. With this assumption, we can
-    modify the transformer to instead produce probabilities for every single
-    token in a frame at the same time. This is a great idea because it means the
-    model is 128 times faster for free.
+    To get around this problem can make an independence assumption that tokens
+    within a frame won't help predict other tokens within the same frame. The
+    context can be restricted to just the previous frames. With this assumption,
+    we can modify the transformer to instead produce probabilities for every
+    single token in a frame at the same time. This is a great idea because it
+    means the model is 128 times faster for free and it removes some of that
+    back and forth between the model and arithmetic coder.
   </p>
-
   <p>
     Another advantage of predicting on a frame level actually comes from an
-    implementation detail with the original model. If you feed multiple frames
-    into the model it wouldn't be able to tell where one begins and another
-    ends. To fix this, an extra token is added to the vocabulary called the BOS,
-    or "Beginning of Sequence" token, and it's used to separate frames. Each
-    frame then becomes 129 tokens instead of 128 which is not ideal when
-    compressing. However, with the modified frame level transformer we can get
-    rid of the BOS token completely and instead add another positional embedding
-    for frame position.
+    implementation detail with the original model. If you flatten and then feed
+    multiple frames into the model it won't be able to tell where one begins and
+    another ends. To fix this, an extra token is added to the vocabulary called
+    the BOS, or "Beginning of Sequence" token, and it's used to separate frames.
+    With this token each frame becomes 129 tokens instead of 128 which is now
+    extra overhead when compressing. However, with the modified frame level
+    transformer we can get rid of the BOS token completely and instead add
+    another positional embedding for frame position.
   </p>
 
   <p>
-    As a sanity check that this independence assumption is reasonable, we can
-    compare the loss graphs of the two models. While this is not an exact apples
-    to apples comparison because of the differing vocabulary sizes (1024 vs
-    1025), it should be close enough.
+    To check that this independence assumption is reasonable, we can compare the
+    loss graphs of the old transformer that predicted on token level and the new
+    frame level transformer. While this is not an exact apples to apples
+    comparison because of the differing vocabulary sizes (1024 vs 1025), it
+    should be close enough.
   </p>
 
   <img src="attachment\old_vs_new.png" class="img_responsive" , width="700" />
@@ -255,14 +257,15 @@
   <p>
     Both models eventually converge to about the same loss so this seems to
     validate the assumption. The great thing about this is that the new model
-    can now generate at a blazingly 116,224 tokens per second. This means that
-    to decode all 5,000 minutes of driving data it would take only 2 hours!
+    can now generate at a blazingly 116,224 tokens per second and decode all
+    5,000 minutes of driving data in 2 hours!
   </p>
 
   <h2>optimal model size</h2>
   <p>
-    The size of the baseline model was chosen arbitrarily but it has a major
-    impact on the compression ratio. A larger model has a lower loss and can
+    I arbitrarily chose the size of the baseline model to be 100x smaller than
+    the comma model but the number of parameters has a major impact on the
+    eventual compression ratio. A larger model has a lower loss and can
     therefore compress better but the model itself takes up more space.
     Conversely a smaller model takes up less space but compresses worse. There
     is some optimal model size where the tradeoffs are balanced to achieve the
@@ -270,10 +273,10 @@
   </p>
 
   <p>
-    To get an idea of how model size affects loss I trained many differently
+    To get an idea of how model size impacts loss I trained many differently
     sized models to convergence. They're relatively small, the largest being
-    only 9 million parameters but I am GPU poor and don't want to wait a month
-    for a training run.
+    only 9 million parameters but I am GPU poor and don't want to wait days for
+    a training run.
   </p>
 
   <table>
@@ -330,10 +333,10 @@
   <p>
     Every model was trained with a batch size of 1,048,576 for 1 epoch where a
     single epoch is 13917 steps so about 14 billion tokens or 95,000 minutes of
-    driving data. For most of the models this is much more training than they
-    need and certainly more than the compute optimal amount. I also used Muon
-    over AdamW for all the applicable parameters and shuffled the training data.
-    Every model also has a context length of 4096 tokens or 32 frames.
+    driving data. For most of the models this is much more training than needed
+    and certainly more than the compute optimal amount. Every model also has a
+    context length of 4096 tokens or 32 frames and I used Muon over AdamW for
+    all the applicable parameters.
   </p>
 
   <img
@@ -343,10 +346,10 @@
   />
 
   <p>
-    This is a log-log plot with the cross entropy loss on the y-axis and
-    compute measured in PetaFLOP-days on the x-axis. The larger models
-    are more sample efficient and the left edge
-    of all the training runs trace out a compute-efficient frontier.
+    This is a log-log plot with the cross entropy test loss on the y-axis and
+    compute measured in PetaFLOP-days on the x-axis. The larger models are more
+    sample efficient and the left edge of all the training runs trace out a
+    compute-efficient frontier.
   </p>
 
   <p>
@@ -354,9 +357,10 @@
     to fit a power law as proposed in "<a
       href="https://arxiv.org/pdf/2001.08361"
       >Scaling Laws for Neural Language Models</a
-    >". Following their convention I am using non-embedding parameters and non-embedding compute. Below
-    you can see the fitted power law on another log-log plot where the x-axis is
-    parameter count and the y-axis is cross entropy loss.
+    >". Following their convention I am using non-embedding parameters and
+    non-embedding compute. Below you can see the fitted power law on another
+    log-log plot where the x-axis is parameter count and the y-axis is cross
+    entropy test loss.
   </p>
 
   <img
@@ -367,8 +371,9 @@
 
   <p>
     We can use this to approximate the loss for a model with N parameters, or
-    say need a certain loss L how large the model would need to be. We can also
-    use this function to plot the compression ratio against parameters.
+    say need a certain loss L we can find how large the model would need to be.
+    We can also use this function to plot the compression ratio against
+    parameters.
   </p>
 
   <img src="attachment/Figure_2.png" class="img_responsive" width="700" />
@@ -384,55 +389,83 @@
   <img src="attachment/Figure_3.png" class="img_responsive" width="700" />
 
   <p>
-    You can see instead of
-    increasing forever there is a peak around 3 where the compression ratio is
-    maximized by a model with 9.5 million parameters. 
-    As the size of the model increases it begins to dominate the compression ratio
-    and erase all savings from lower loss. For this graph I assumed that model 
-    weights are stored in 16 bit but the precision changes the maximum compression
-    ratio and model size.
+    Now instead of increasing forever the lines eventually peak at some maximum
+    compression ratio and as the size of the model increases it begins to
+    dominate the compression ratio and erase all savings from the lower loss.
+    Each of the different lines represent different precisions for storing model
+    parameters. For all my models I used 16 bit parameters but you can see
+    reducing that to 8 or even 4 would likely improve the compression ratio
+    (although model performance might degrade from lower precision).
   </p>
   <p>
-    So we have a model that is close to the optimal model size but its
-    slow. It is only able to get around 20,000 tokens per second
-    which means it would take about 10 hours to decompress.
+    So we have a model that is close to the optimal model size but we're back to
+    where we started because now it's too slow again. It is only able to get
+    around 20,000 tokens per second which means it would take about 10 hours to
+    decompress. Luckily there are a few inference optimizations we can implement
+    to help!
   </p>
 
   <h2>kv caching and batching</h2>
   <p>
-    One very common and easy performance gain is kv caching. Currently when doing a
-    forward pass the model is computing the key and values for every single token
-    in the context. This is pretty wasteful because the key and values do
-    not change for already seen tokens so most of the computation in a single pass is wasted recomputing already seen tokens. 
-    The idea of kv caching is just to compute the key and value pairs for each token once and then store them to be reused.
+    One very common and easy performance gain is kv caching. Currently when
+    doing a forward pass the model is computing the keys and values for every
+    single token in the context, but this is pretty wasteful because the keys
+    and values do not change for already seen tokens. Thus the idea of kv
+    caching is to compute the keys and values for a token once and then store
+    them to be reused. There is one implementation detail and its that
+    since I used learned positional encodings in training I have to chunk
+    sequences into context length sized blocks to use kv caching. At the beginning
+    of each chunk the tokens will have context so the predictions will be worse.
+    On average this comes out to be about 1.6 bytes of overhead per file or 
+    0.08 overhead in the compression ratio. 
   </p>
   <p>
-    Suprisingly the performance gain from this isn't actually that great.
+    Suprisingly the performance gain from this isn't actually that great. In my
+    experiments it goes from 20,000 tokens per second to about 30,000. This brings us
+    to the next inference time optimization which is batching. 
   </p>
+
   <p>
-    
+    Currently each minute of driving data is being compressed sequentially one 
+    after the other, but transformers can do batched inference. We just pass 32
+    minutes to the model and it will do a single forward pass generating probabilities
+    for all of them in parallel. Similar to kv caching this alone had a suprisingly small
+    impact on performance. It jumped from 20,000 tokens per second to about 60,000. 
+  </p>
+
+  <p>
+    Finally we can combine both of these methods and it gets even faster! The
+    final decompression time is about 3 hours which isn't terrible considering there
+    is more overhead than what was described here.
   </p>
   
   <h2>Final Remarks</h2>
   <p>
-    Obviously there is still room for improvement here, in both compression ratio and 
-    the speed of decoding. You could quantize the model to 8 or 4 bits or do
-    weight tying between the encoder and decoder or not even store a model at all
-    and learn the model as you decode. 
+    Obviously there is still room for improvement here, in both compression
+    ratio and the speed of decoding. You could quantize the model to 8 or 4 bits
+    or do weight tying between the encoder and decoder or not even store a model
+    at all and learn it as you decode.
   </p>
   <p>
-    I wanted to train general models so I used the last 
-    95,000 minutes as the training set and the first 5,000 as validation. You could instead
-    train on the first 5,000 minutes alone for many epochs to deliberately overfit and improve
-    the compression ratio.
+    I think this last one is the most promising for getting very high
+    compression ratios. Since you don't have to send a model you can make it as
+    large as you want and larger models are more sample efficient so the
+    compression ratio will improve the larger you make it even when training on
+    the same data. The only problem here is of course speed because you have to
+    retrain the model from scratch every single time you want to compress or
+    decompress the data.
   </p>
   <p>
-    With respect to decompression speed the main bottleneck on my machine was memory bandwidth.
-    Each time the model does a forward pass it has to transfer a matrix size (batch_size, 128, 1024)
-    to the CPU. This could be avoided with an arithmetic coding implementation on the GPU directly.
-    An easier solution is just adding more GPUs and decoding in parallel.
+    The most obvious way to increase the decompression speed is to use multiple
+    GPUs. Running 4 GPUs decoding sequences in parallel would make decompression
+    4 times faster and even more would probably bring the compression times into
+    the practical range. On my machine atleast I suspect that decompression is
+    memory bandwidth bound because every single time the model does a forward
+    pass it needs to transfer the (batch_size, 1200, 128) sequence to the CPU to
+    be used in the arithmetic coder.
   </p>
   <p>
-    Finally I would like to thank comma for putting on this challenge, it was very fun!
+    Finally I would like to thank comma for putting on this challenge, it was
+    very fun!
   </p>
 </body>
