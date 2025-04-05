@@ -200,7 +200,7 @@
   </p>
 
   <p>
-    Even though this model is 100x smaller speed is still an issue. It now
+    Even though this model is 100x smaller, speed is still an issue. It now
     generates at 908 tokens per second which is an improvement, but it would
     still take 10 days to decompress all the data.
   </p>
@@ -220,13 +220,13 @@
     coder compressing is not good for performance.
   </p>
   <p>
-    To get around this problem can make an independence assumption that tokens
-    within a frame won't help predict other tokens within the same frame. The
-    context can be restricted to just the previous frames. With this assumption,
-    we can modify the transformer to instead produce probabilities for every
-    single token in a frame at the same time. This is a great idea because it
-    means the model is 128 times faster for free and it removes some of that
-    back and forth between the model and arithmetic coder.
+    To get around this problem you can make an independence assumption that
+    tokens within a frame won't help predict other tokens within the same frame.
+    The context can be restricted to just the previous frames. With this
+    assumption, we can modify the transformer to instead produce probabilities
+    for every single token in a frame at the same time. This is a great idea
+    because it means the model is 128 times faster for free and it removes some
+    of that back and forth between the model and arithmetic coder.
   </p>
   <p>
     Another advantage of predicting on a frame level actually comes from an
@@ -367,8 +367,8 @@
 
   <p>
     We can use this to approximate the loss for a model with N parameters, or
-    say need a certain loss L we can find how large the model would need to be.
-    We can also use this function to plot the compression ratio against
+    say you need a certain loss L you can find how large the model would need to
+    be. We can also use this function to plot the compression ratio against
     parameters.
   </p>
 
@@ -408,7 +408,7 @@
     single token in the context, but this is pretty wasteful because the keys
     and values do not change for already seen tokens. Thus the idea of kv
     caching is to compute the keys and values for a token once and then store
-    them to be reused. There is one problem and its that since I used learned
+    them to be reused. There is one problem and it's that since I used learned
     positional encodings in training I have to chunk sequences into context
     length sized blocks to use KV caching. At the beginning of each chunk the
     tokens will have no context so the predictions will be worse. On average
@@ -417,24 +417,24 @@
   </p>
   <p>
     Before KV caching the model was decoding at 7,000 tokens per second and
-    after it jumps to about 18,000. This is a pretty nice improvement but we can
-    keep going with improvements.
+    after it jumped to about 18,000. This is a pretty nice improvement but we
+    can keep going with improvements.
   </p>
 
   <p>
     Currently each minute of driving data is being compressed sequentially one
     after the other, but transformers can do batched inference. If we pass 32
-    minutes of driving data to the model it can do a single forward pass generating
-    probabilities for all of them in parallel. Batching alone takes the performance
-    from 7,000 tokens per second to 10,000 tokens per second but we can actually combine
-    KV caching and batching to increase the final speed to 70,000 tokens per second. 
-    This brings the final decoding time to 3 hours which is still pretty long
-    but manageable.
+    minutes of driving data to the model it can do a single forward pass
+    generating probabilities for all of them in parallel. Batching alone takes
+    the performance from 7,000 tokens per second to 10,000 tokens per second but
+    we can actually combine KV caching and batching to increase the final speed
+    to 70,000 tokens per second. This brings the final decoding time to 3 hours
+    which is still pretty long but manageable.
   </p>
 
   <h2>fun visualizations</h2>
   <p>
-    To end I just wanted to show off some cools things we can do with the
+    To end, I just wanted to show off some cool things we can do with the
     models. Originally all the sequences were stored with the same number of
     bits, but the arithmetic coding allows for different sequences to be
     compressed to different sizes. We can sort all the sequences according to
@@ -474,9 +474,9 @@
   </video>
 
   <p>
-    The prediction is suprisingly coherent and the general features like the sky
-    and road remain mostly consistent until the end. In contrast this clip below
-    is the next 10 seconds as predicted by a 0.2 million parameter model.
+    The prediction is surprisingly coherent and the general features like the
+    sky and road remain mostly consistent until the end. In contrast this clip
+    below is the next 10 seconds as predicted by a 0.2 million parameter model.
   </p>
 
   <video width="700" controls class="img_responsive">
@@ -512,10 +512,7 @@
     The most obvious way to increase the decompression speed is to use multiple
     GPUs. Running 4 GPUs decoding sequences in parallel would make decompression
     4 times faster and even more would probably bring the compression times into
-    the practical range. On my machine atleast I suspect that decompression is
-    memory bandwidth bound because every single time the model does a forward
-    pass it needs to transfer the (batch_size, 1200, 128) sequence to the CPU to
-    be used in the arithmetic coder.
+    the practical range.
   </p>
   <p>
     Finally I would like to thank Comma for putting on this challenge, it was
