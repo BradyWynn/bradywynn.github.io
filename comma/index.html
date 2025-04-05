@@ -2,9 +2,10 @@
 <link rel="stylesheet" href="style.css" />
 
 <body>
+  <h1>Arithmetic Coding with GPT</h1>
   <h2>background</h2>
   <p>
-    Over the summer Neuralink held a
+    Last summer Neuralink held a
     <a href="https://content.neuralink.com/compression-challenge/README.html"
       >compression challenge</a
     >
@@ -15,7 +16,7 @@
     >
     as being impossible but inspired a similar challenge from
     <a href="https://comma.ai/">comma.ai</a>, a company developing an open
-    source autopilot. This blogpost explains my submission to the comma
+    source autopilot. This blogpost explains my submission to the Comma
     challenge that is comparable to second place.
   </p>
   <h2>the challenge</h2>
@@ -26,9 +27,9 @@
     width="700"
   />
   <p>
-    The challenge is to "losslessly compress 5,000 minutes of driving data." An
-    example video of driving is shown below. (This video isn't actually from the
-    data provided)
+    The challenge is to "losslessly compress 5,000 minutes of driving data."
+    5,000 minutes is also equivalent to 83 hours or 3 days of video. An example
+    clip is shown below.
   </p>
   <br />
   <video width="700" controls class="img_responsive">
@@ -40,10 +41,11 @@
   </video>
   <br />
   <p>
-    The video is low resolution, just 256x128. Since the full 5,000 minutes of
-    footage would be very large, the data has been heavily compressed using a
+    The video is low resolution, just 256x128, but even at this low resolution
+    the full 5,000 minutes of footage would be very large. So before providing
+    the data Comma has already heavily compressed it using a
     <a href="https://arxiv.org/pdf/1711.00937">VQ-VAE</a> to make it easier to
-    handle.
+    work with.
   </p>
   <img src="attachment\image2274.png" class="img_responsive" width="700" />
   <p>
@@ -52,8 +54,9 @@
     representation and it being 10 bit means its values can take on any integer
     from 0 to 1023. If we only store the latent representation and decoder we
     can recover the original image. Note however that this is lossy compression
-    which means information is lost when compressing. Below is the same example
-    video but now compressed with the VQ-VAE.
+    which means information is lost when compressing so the reconstructed image
+    won't exactly match the original. Below is the same example video but now
+    compressed with the VQ-VAE.
   </p>
   <br />
   <video width="700" controls class="img_responsive">
@@ -65,16 +68,9 @@
   </video>
   <br />
   <p>
-    Since each frame is compressed independently, there is temporal artifacting
-    between them, but it captures the general features of the image. What is
-    interesting is that we can find features in the latent representation
-    directly. Below is the average of all the latent frames, with a visible
-    horizon and road lines despite the low resolution.
-  </p>
-  <img src="attachment\image.png" class="img_responsive" />
-  <p>
-    Before compression the data is about 915 mb, while the first place
-    submission is about 270 mb, which gives a compression ratio of 3.4.
+    Storing the 5,000 minutes of driving data normally takes 915 MB and the
+    first place submission has a compression ratio of 3.4 meaning they were able
+    to compress the data into 270 MB.
   </p>
   <h2>arithmetic coding</h2>
   <p>
@@ -170,7 +166,7 @@
   <p>
     We can use this model with arithmetic coding to compress the data, and while
     it works, there are two major problems. The first problem is that the model
-    itself takes up 614 mb, so just storing it would take more than twice the
+    itself takes up 614 MB, so just storing it would take more than twice the
     space of the entire first place submission. The second problem is that
     because the model is so large, it is extremely slow. On my GPU (RTX 3070 Ti)
     it runs at 130 tokens per second which doesn't sound terrible, but since
@@ -185,9 +181,9 @@
   </p>
   <h2>baseline model</h2>
   <p>
-    To hopefully get a more realistic baseline we can train a similar model to
-    the one comma trained but with 100x less parameters. This should make it
-    significantly faster and easier to work with.
+    To get a better baseline we can train a similar model to the one Comma
+    trained but with 100x less parameters. This should make it significantly
+    faster and easier to work with. Below is just the loss for this model.
   </p>
 
   <img src="attachment/baseline.png" class="img_responsive" , width="700" />
@@ -199,12 +195,12 @@
     Since each symbol normally takes 10 bits we can do 10/3.6 to get a
     compression ratio of 2.78. This is already better than the second place
     submission! It's not quite right though because we also need to store the
-    model which is about 7 mb so the actual compression ratio will be closer to
+    model which is about 7 MB so the actual compression ratio will be closer to
     2.7.
   </p>
 
   <p>
-    Even though we made the model 100x smaller speed is still an issue. It now
+    Even though this model is 100x smaller speed is still an issue. It now
     generates at 908 tokens per second which is an improvement, but it would
     still take 10 days to decompress all the data.
   </p>
@@ -216,11 +212,11 @@
     tiny. Let's take a moment and think about what the model is actually doing.
   </p>
   <p>
-    Currently the model takes in the context tokens, then outputs a probability
-    distribution over all possible next tokens that gets passed to the
-    arithmetic coder to compress the sequence. Since each frame of video is 128
-    tokens this process repeats 128 times to compress a single frame and this
-    constant switching between the model doing inference and the arithmetic
+    Currently the model takes in some tokens as context, then outputs a
+    probability distribution over all possible next tokens that gets passed to
+    the arithmetic coder to compress the sequence. Since each frame of video is
+    128 tokens this process repeats 128 times to compress a single frame and
+    this constant switching between the model doing inference and the arithmetic
     coder compressing is not good for performance.
   </p>
   <p>
@@ -264,7 +260,7 @@
   <h2>optimal model size</h2>
   <p>
     I arbitrarily chose the size of the baseline model to be 100x smaller than
-    the comma model but the number of parameters has a major impact on the
+    the Comma model but the number of parameters has a major impact on the
     eventual compression ratio. A larger model has a lower loss and can
     therefore compress better but the model itself takes up more space.
     Conversely a smaller model takes up less space but compresses worse. There
@@ -340,16 +336,16 @@
   </p>
 
   <img
-    src="attachment/test_loss_vs_compute.png"
+    src="attachment/train_loss_vs_compute.png"
     class="img_responsive"
     width="700"
   />
 
   <p>
-    This is a log-log plot with the cross entropy test loss on the y-axis and
-    compute measured in PetaFLOP-days on the x-axis. The larger models are more
-    sample efficient and the left edge of all the training runs trace out a
-    compute-efficient frontier.
+    This is a log-log plot with the cross entropy train loss on the y-axis and
+    compute measured in PetaFLOP-days on the x-axis. The larger models
+    eventually cross the smaller models and the left edge of all the training
+    runs trace out a compute-efficient frontier.
   </p>
 
   <p>
@@ -357,14 +353,14 @@
     to fit a power law as proposed in "<a
       href="https://arxiv.org/pdf/2001.08361"
       >Scaling Laws for Neural Language Models</a
-    >". Following their convention I am using non-embedding parameters and
+    >." Following their convention I am using non-embedding parameters and
     non-embedding compute. Below you can see the fitted power law on another
     log-log plot where the x-axis is parameter count and the y-axis is cross
-    entropy test loss.
+    entropy train loss.
   </p>
 
   <img
-    src="attachment/test_loss_vs_parameters.png"
+    src="attachment/train_loss_vs_parameters.png"
     class="img_responsive"
     width="700"
   />
@@ -379,11 +375,11 @@
   <img src="attachment/Figure_2.png" class="img_responsive" width="700" />
 
   <p>
-    This is not a log-log plot and it really demonstrates how quickly the
-    compression ratio tapers off. A model with a compression ratio equal to
-    first place would need 33 million parameters but of course the model itself
-    takes up space. We can factor this into the equation to get the final
-    compression ratio equation.
+    This is not a log-log plot and it demonstrates how quickly the compression
+    ratio tapers off. A model with a compression ratio equal to first place
+    would need 33 million parameters but of course the model itself takes up
+    space. We can factor this into the equation to get the final compression
+    ratio equation.
   </p>
 
   <img src="attachment/Figure_3.png" class="img_responsive" width="700" />
@@ -400,72 +396,103 @@
   <p>
     So we have a model that is close to the optimal model size but we're back to
     where we started because now it's too slow again. It is only able to get
-    around 20,000 tokens per second which means it would take about 10 hours to
+    around 7,000 tokens per second which means it would take about 30 hours to
     decompress. Luckily there are a few inference optimizations we can implement
     to help!
   </p>
 
   <h2>kv caching and batching</h2>
   <p>
-    One very common and easy performance gain is kv caching. Currently when
+    One very common and easy performance gain is KV caching. Currently when
     doing a forward pass the model is computing the keys and values for every
     single token in the context, but this is pretty wasteful because the keys
     and values do not change for already seen tokens. Thus the idea of kv
     caching is to compute the keys and values for a token once and then store
-    them to be reused. There is one implementation detail and its that
-    since I used learned positional encodings in training I have to chunk
-    sequences into context length sized blocks to use kv caching. At the beginning
-    of each chunk the tokens will have context so the predictions will be worse.
-    On average this comes out to be about 1.6 bytes of overhead per file or 
-    0.08 overhead in the compression ratio. 
+    them to be reused. There is one problem and its that since I used learned
+    positional encodings in training I have to chunk sequences into context
+    length sized blocks to use KV caching. At the beginning of each chunk the
+    tokens will have no context so the predictions will be worse. On average
+    this comes out to be about 1.6 bytes of overhead per minute or lowering the
+    compression ratio by 0.08.
   </p>
   <p>
-    Suprisingly the performance gain from this isn't actually that great. In my
-    experiments it goes from 20,000 tokens per second to about 30,000. This brings us
-    to the next inference time optimization which is batching. 
-  </p>
-
-  <p>
-    Currently each minute of driving data is being compressed sequentially one 
-    after the other, but transformers can do batched inference. We just pass 32
-    minutes to the model and it will do a single forward pass generating probabilities
-    for all of them in parallel. Similar to kv caching this alone had a suprisingly small
-    impact on performance. It jumped from 20,000 tokens per second to about 60,000. 
+    Before KV caching the model was decoding at 7,000 tokens per second and
+    after it jumps to about 18,000. This is a pretty nice improvement but we can
+    keep going with improvements.
   </p>
 
   <p>
-    Finally we can combine both of these methods and it gets even faster! The
-    final decompression time is about 3 hours which isn't terrible considering there
-    is more overhead than what was described here.
+    Currently each minute of driving data is being compressed sequentially one
+    after the other, but transformers can do batched inference. If we pass 32
+    minutes of driving data to the model it can do a single forward pass generating
+    probabilities for all of them in parallel. Batching alone takes the performance
+    from 7,000 tokens per second to 10,000 tokens per second but we can actually combine
+    KV caching and batching to increase the final speed to 70,000 tokens per second. 
+    This brings the final decoding time to 3 hours which is still pretty long
+    but manageable.
   </p>
 
   <h2>fun visualizations</h2>
   <p>
-    To end I just wanted to show off some cools things we can do with the models.
-    Originally all the data was stored with the same number of bits, but the arithmetic
-    coding allows for different sequences to be compressed with different sizes. So
-    more complicated sequences will take more bits to store and vice versa. If we 
-    investigate the compressed files we can see this. 
+    To end I just wanted to show off some cools things we can do with the
+    models. Originally all the sequences were stored with the same number of
+    bits, but the arithmetic coding allows for different sequences to be
+    compressed to different sizes. We can sort all the sequences according to
+    their compressed sizes and see what the differences are. Below is the
+    smallest minute of driving data and it is 27 KB. The clip is not very
+    exciting and most of it is sitting still with nothing in the frame changing
+    which makes sense since the fewer changes there are between frames the
+    easier it is for the model to predict.
   </p>
 
   <video width="700" controls class="img_responsive">
-    <source
-      src="attachment\8mb.video-axS-F3QVYggW.mp4"
-      ,
-      type="video/mp4"
-    />
+    <source src="attachment/smallest.mp4" , type="video/mp4" />
   </video>
+
+  <p>
+    For comparison, below is the largest minute of driving data and it is 110
+    KB. So in some sense this clip has 4 times more information than the
+    previous clip and this is evident when you watch it. It is raining in the
+    clip making predicting what will happen next very difficult as things pop in
+    and out of frame constantly.
+  </p>
 
   <video width="700" controls class="img_responsive">
-    <source
-      src="attachment\8mb.video-xUW-NFm8RSPv.mp4"
-      ,
-      type="video/mp4"
-    />
+    <source src="attachment/largest.mp4" , type="video/mp4" />
   </video>
 
-  
-  <h2>Final Remarks</h2>
+  <p>
+    We can also use these models to try and predict the future. If we feed them
+    some driving video as context we can sample tokens into the future
+    autoregressively and continue the video clip. For the clip below the first
+    10 seconds is the context and then the next 10 seconds is predicted by the 9
+    million parameter model.
+  </p>
+
+  <video width="700" controls class="img_responsive">
+    <source src="attachment/9437184.mp4" , type="video/mp4" />
+  </video>
+
+  <p>
+    The prediction is suprisingly coherent and the general features like the sky
+    and road remain mostly consistent until the end. In contrast this clip below
+    is the next 10 seconds as predicted by a 0.2 million parameter model.
+  </p>
+
+  <video width="700" controls class="img_responsive">
+    <source src="attachment/196608.mp4" , type="video/mp4" />
+  </video>
+
+  <p>
+    It very quickly diverges after the 10 second mark until it is not even
+    recognizable as the original clip. The scene changes between night and day
+    and various random things appear to pop into the frame randomly. This is a
+    very nice visual way to see the differences between the two models and gives
+    some intuition about how predicting what will happen next better also leads
+    to better compression.
+  </p>
+
+  <h2>final remarks</h2>
   <p>
     Obviously there is still room for improvement here, in both compression
     ratio and the speed of decoding. You could quantize the model to 8 or 4 bits
@@ -491,7 +518,7 @@
     be used in the arithmetic coder.
   </p>
   <p>
-    Finally I would like to thank comma for putting on this challenge, it was
+    Finally I would like to thank Comma for putting on this challenge, it was
     very fun!
   </p>
 </body>
