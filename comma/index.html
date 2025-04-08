@@ -2,7 +2,10 @@
 <link rel="stylesheet" href="style.css" />
 
 <body>
-  <h1>Arithmetic Coding with GPT</h1>
+  <div class="header-container">
+    <h1>Arithmetic Coding with GPT</h1>
+    <h3>April 8, 2025</h3>
+  </div>
   <h2>background</h2>
   <p>
     Last summer Neuralink held a
@@ -74,12 +77,10 @@
   </p>
   <h2>arithmetic coding</h2>
   <p>
-    Arithmetic coding is a popular lossless compression technique. Lossless
-    compression means that no information is lost in the process and is
-    different from lossy compression formats such as jpeg that lose quality when
-    compressed. To begin, arithmetic coding first needs a model that assigns a
-    probability to each character of how likely it is to appear. An example is
-    shown below:
+    Arithmetic coding is a popular lossless compression technique and differs
+    from lossy compression because no information is lost when compressing. To
+    begin, arithmetic coding first needs a model that assigns a probability to
+    each character of how likely it is to appear. An example is shown below:
   </p>
   <br />
   <table>
@@ -141,10 +142,11 @@
   </p>
   <p>
     What was described above is called infinite precision arithmetic coding
-    because it requires infinite precision. Computers do not have infinite
-    precision and if you were to try and implement this it would fail for longer
-    sequences because the intervals would become so tiny that the computer would
-    not be able to represent them properly.
+    because as the range the message is inside gets smaller it requires more
+    bits to represent. If you were to try and implement this with floating point
+    numbers it would eventually fail for longer sequences because the intervals
+    would become so tiny that the computer would not be able to represent them
+    properly.
     <a
       href="https://web.archive.org/web/20241123060529/https://marknelson.us/posts/2014/10/19/data-compression-with-arithmetic-coding.html"
       >This</a
@@ -154,9 +156,9 @@
   </p>
   <h2>transformers for arithmetic coding</h2>
   <p>
-    As previously mentioned for arithmetic coding to work you need a model to
-    provide probabilities for each symbol. Conveniently included in the
-    repository with the driving data is a GPT-2 medium sized model (about 350
+    As previously mentioned, for arithmetic coding to work you need a model to
+    provide probabilities for each symbol. Conveniently, Comma has included in
+    the repository with the driving data a GPT-2 medium sized model (about 350
     million parameters) that is trained on 3 million minutes of driving data to
     predict the next token. What they did was flatten the 10-bit 16x8 latent
     representation into 128 "tokens" per frame and the model takes in past
@@ -263,9 +265,9 @@
     the Comma model but the number of parameters has a major impact on the
     eventual compression ratio. A larger model has a lower loss and can
     therefore compress better but the model itself takes up more space.
-    Conversely a smaller model takes up less space but compresses worse. There
-    is some optimal model size where the tradeoffs are balanced to achieve the
-    maximum compression ratio.
+    Conversely a smaller model takes up less space but compresses worse. We want
+    to find the optimal model size where the number of parameters is balanced
+    with the performance to get the maximum compression ratio.
   </p>
 
   <p>
@@ -277,7 +279,7 @@
 
   <table>
     <tr>
-      <th>params</th>
+      <th>params (non-embd)</th>
       <th>n_layer</th>
       <th>dim</th>
       <th>n_head</th>
@@ -411,9 +413,9 @@
     them to be reused. There is one problem and it's that since I used learned
     positional encodings in training I have to chunk sequences into context
     length sized blocks to use KV caching. At the beginning of each chunk the
-    tokens will have no context so the predictions will be worse. On average
-    this comes out to be about 1.6 bytes of overhead per minute or lowering the
-    compression ratio by 0.08.
+    tokens will have no context so the predictions will be worse and on average
+    this comes out to be about 1.6 bytes of overhead per minute or equivalent to
+    lowering the compression ratio by 0.08.
   </p>
   <p>
     Before KV caching the model was decoding at 7,000 tokens per second and
@@ -436,13 +438,13 @@
   <p>
     To end, I just wanted to show off some cool things we can do with the
     models. Originally all the sequences were stored with the same number of
-    bits, but the arithmetic coding allows for different sequences to be
-    compressed to different sizes. We can sort all the sequences according to
-    their compressed sizes and see what the differences are. Below is the
-    smallest minute of driving data and it is 27 KB. The clip is not very
-    exciting and most of it is sitting still with nothing in the frame changing
-    which makes sense since the fewer changes there are between frames the
-    easier it is for the model to predict.
+    bits, but arithmetic coding allows for different sequences to be compressed
+    to different sizes. We can sort all the sequences according to their
+    compressed sizes and see what the differences are. Below is the smallest
+    minute of driving data and it is 27 KB. The clip is not very exciting and
+    most of it is sitting still with nothing in the frame changing which makes
+    sense since the fewer changes there are between frames the easier it is for
+    the model to predict.
   </p>
 
   <video width="700" controls class="img_responsive">
@@ -487,17 +489,17 @@
     It very quickly diverges after the 10 second mark until it is not even
     recognizable as the original clip. The scene changes between night and day
     and various random things appear to pop into the frame randomly. This is a
-    very nice visual way to see the differences between the two models and gives
-    some intuition about how predicting what will happen next better also leads
-    to better compression.
+    very nice visual way to compare the two models and seems much more telling
+    than simply saying one has a lower cross entropy than the other.
   </p>
 
   <h2>final remarks</h2>
   <p>
-    Obviously there is still room for improvement here, in both compression
-    ratio and the speed of decoding. You could quantize the model to 8 or 4 bits
-    or do weight tying between the encoder and decoder or not even store a model
-    at all and learn it as you decode.
+    So the final results are a compression ratio of 2.9 and a decoding time of 3
+    hours. Obviously there is still room for improvement here, in both
+    compression ratio and the speed of decoding. You could quantize the model to
+    8 or 4 bits or do weight tying between the encoder and decoder or not even
+    store a model at all and learn it as you decode.
   </p>
   <p>
     I think this last one is the most promising for getting very high
@@ -518,4 +520,11 @@
     Finally I would like to thank Comma for putting on this challenge, it was
     very fun!
   </p>
+  <br>
+  <br>
+  <br>
+  <br>
+  <br>
+  <br>
+  <br>
 </body>
